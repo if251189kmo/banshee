@@ -1,0 +1,22 @@
+# Залежності й збірка
+node_modules/
+out/
+dist/
+*.tsbuildinfo
+
+# Дані розробки: БД, моделі, журнали, кеш npm (.claude/logic/01-architecture.md)
+/.data/
+*.db
+*.db-wal
+*.db-shm
+
+# Тести й еталонний набір
+coverage/
+/evals/results/
+
+# Секрети: токени MCP-серверів і змінні середовища
+.mcp.json
+.env*
+
+# Особисті налаштування Claude Code
+.claude/settings.local.json
