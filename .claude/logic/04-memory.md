@@ -114,7 +114,7 @@ erDiagram
     TEXT tool
     TEXT args_json
     TEXT tier "green, yellow, red"
-    TEXT source "voice, text, routine, code"
+    TEXT source "voice, text, routine, code, ui, sync"
     TEXT confirmed_by "auto, voice, click, key"
     TEXT status "done, failed, denied, cancelled"
     TEXT result
@@ -137,6 +137,8 @@ erDiagram
 ```
 
 `turns.routine_id` посилається на рутину, яка виконала хід без LLM. `route = none` з `outcome = no_ai` — команда, яку в базовому режимі не виконано, бо потрібен ШІ.
+
+Зміни налаштувань і перемикання ШІ — теж рядки `actions`: `tool = settings.set`, `source` — `ui`, `voice` чи `sync`, у `undo_json` — попереднє значення. Тож «скасуй» працює для них так само, як для файлів ([10-settings.md](10-settings.md)).
 
 Слоти рутин (`{app}`, `{folder}`) підставляються зі словника назв цього ПК.
 

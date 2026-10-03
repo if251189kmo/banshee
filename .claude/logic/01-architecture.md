@@ -56,7 +56,7 @@ flowchart TB
 | Компонент | Відповідальність | Технології |
 |---|---|---|
 | `apps/core` | агентний цикл, маршрутизація, політика дій, пам'ять, журнал, облік і ліміт витрат, стан ШІ й базовий режим, статистика, навчання, експорт і синхронізація | Node.js в `utilityProcess` Electron, `@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`, `better-sqlite3` |
-| `apps/desktop` | трей, оверлей, картки підтвердження, центр керування з «Активністю», мікрофон, wake word, VAD, розпізнавання власника, STT, TTS | Electron + React, Fluent UI System Icons, sherpa-onnx: wake word, VAD, відбиток голосу, Whisper і Piper — усе локально |
+| `apps/desktop` | трей, оверлей, картки підтвердження, центр керування з «Активністю», мікрофон, wake word, VAD, розпізнавання власника; STT і TTS — у процесі voice | Electron + React, Fluent UI System Icons, sherpa-onnx: wake word, VAD, відбиток голосу, Whisper і Piper — усе локально |
 | `mcp/pc` | інструменти ПК: програми, вікна, звук, файли, PowerShell | MCP-сервер на Node; один постійний процес PowerShell + UI Automation |
 | Playwright MCP | дії в браузері | зовнішній пакет `@playwright/mcp`, окремий профіль браузера |
 | `packages/shared` | спільні типи й протокол між core і desktop | TypeScript |
@@ -74,14 +74,14 @@ flowchart TB
 - **MCP-сервери** — дочірні процеси core (stdio). `mcp/pc` тримає один постійний процес PowerShell, бо запуск `powershell.exe` на кожну дію коштує сотні мілісекунд. Команду, що зависла, вбиваємо через 30 с, а процес перезапускаємо.
 - **Без інтернету** core переходить у базовий режим ([03-brain.md](03-brain.md)): рутини й вбудовані команди працюють, голос працює як завжди — він локальний, на решту Banshee відповідає «Немає зв'язку». Команди в чергу не ставляться: виконати їх пізніше було б несподіванкою.
 - Banshee працює як звичайний застосунок у сесії користувача, а не як служба Windows: службам недоступний робочий стіл.
-- Нативні модулі (`better-sqlite3`, sherpa-onnx) збираються під Node з Electron (`@electron/rebuild`).
+- Нативні модулі ставляться готовими збірками під ABI Electron: `@electron/rebuild` бере prebuilt-бінарники, без компіляції. `@napi-rs/keyring` — на Node-API, перезбирання не потребує; `better-sqlite3` і `sherpa-onnx-node` перевіряє крок 0.8.
 
 ## Встановлення й оновлення
 
 - **Встановлювач** — NSIS (electron-builder), для поточного користувача, без прав адміністратора. Програма ставиться в `%LOCALAPPDATA%\Programs\Banshee`, дані лежать у `%LOCALAPPDATA%\Banshee`.
 - **Моделі** (wake word, VAD, відбиток голосу, Whisper, Piper) завантажуються під час першого запуску з перевіркою SHA-256.
   - Разом ~1 ГБ.
-  - Типова тека — `%LOCALAPPDATA%\Banshee\models`. На диску C: цього ПК вільно лише 5,8 ГБ, тому теку моделей можна перенести на інший диск (налаштування пристрою).
+  - Типова тека — `%LOCALAPPDATA%\Banshee\models`. На диску C: цього ПК вільно лише ~5 ГБ, тому теку моделей можна перенести на інший диск (налаштування пристрою).
 - **Майстер першого запуску:**
   - мікрофон: перевіряє дозвіл Windows «Доступ до мікрофона для класичних програм» і веде до потрібної сторінки параметрів, якщо доступ закрито;
   - запис голосу власника, 30 с;
@@ -138,7 +138,7 @@ flowchart TB
   - Наявність готових збірок перевіряє етап 0.
   - `@napi-rs/keyring` — доступ до Credential Manager. Він на Node-API, тож одна збірка працює і в Node, і в Electron. keytar не беремо: його архівовано 15.12.2022.
 - **Дані в розробці** — `.data/` у корені репозиторію (диск D:), а не `%LOCALAPPDATA%`. Там БД, моделі, журнали й кеш npm (`.data/npm-cache`, через `.npmrc` проєкту): на C: вільно лише ~5 ГБ. Тека в `.gitignore`.
-- **Ключі** — у Credential Manager, ті самі записи, що й у застосунку; змінних середовища немає (рішення власника 2026-10-03). Поки вікна налаштувань немає, їх вводить власник командою `npm run key` ([12-api.md](12-api.md)). `ANTHROPIC_API_KEY` не задавати: Claude Code перейде з підписки на оплату за API.
+- **Ключ Claude** — у Credential Manager, той самий запис, що й у застосунку; змінних середовища немає (рішення власника 2026-10-03). Поки вікна налаштувань немає, його вводить власник командою `npm run key` ([12-api.md](12-api.md)). `ANTHROPIC_API_KEY` не задавати: Claude Code перейде з підписки на оплату за API.
 - **Git** — локальний репозиторій. `.gitignore`: `node_modules`, `out`, `dist`, `*.tsbuildinfo`, `.data`, `*.db` (з `-wal` і `-shm`), `coverage`, `evals/results`, `.env*`, `.mcp.json` (токени MCP-серверів), `.claude/settings.local.json` (особисті налаштування Claude Code).
   - Репозиторій: `github.com/if251189kmo/banshee`, гілка `main`.
   - Автор комітів — git-ім'я й email власника; коміт — лише з його дозволу.
@@ -156,7 +156,7 @@ flowchart TB
 banshee/
 ├─ apps/
 │  ├─ core/        агентний цикл, політика дій, пам'ять, облік витрат
-│  └─ desktop/     Electron: трей, оверлей, аудіо, підтвердження
+│  └─ desktop/     Electron: трей, оверлей, аудіо, процес voice, підтвердження
 ├─ mcp/
 │  └─ pc/          інструменти ПК, постійний PowerShell
 ├─ packages/
@@ -168,6 +168,6 @@ banshee/
 ```
 
 - **Монорепо — npm workspaces** (рішення власника, 2026-10-03): кореневий `package.json` з полем `workspaces`, без pnpm і Yarn.
-- **Перевірки Definition of Done** (рішення власника, 2026-10-03) — скрипти кореневого `package.json`: `npm run typecheck`, `npm run lint`, `npm test`, `npm run evals`. З'являться на етапі 1.
+- **Перевірки Definition of Done** (рішення власника, 2026-10-03) — скрипти кореневого `package.json`: `npm run typecheck`, `npm run lint`, `npm test`, `npm run evals`. Перші три з'являються на кроці П3, `evals` — на кроці 0.1.
 
 > **Референси для `mcp/pc`:** desk-mcp (Node + вбудований PowerShell) і mcp-windows (елементи за назвою, а не за координатами). Код перевірити перед використанням.
