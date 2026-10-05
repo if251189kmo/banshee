@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// PostToolUse-хук: проганяє eslint --fix по щойно зміненому файлу.
+// PostToolUse-хук: форматує щойно змінений файл Prettier і проганяє по ньому eslint --fix.
 // Код виходу 2 повертає stderr назад у Claude Code, тож модель бачить помилку
 // одразу після запису, а не на коміті.
 
@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs';
 
 const LINTABLE = /\.(ts|tsx|mts|cts)$/;
 const ESLINT = 'node_modules/eslint/bin/eslint.js';
+const PRETTIER = 'node_modules/prettier/bin/prettier.cjs';
 
 function readStdin() {
   return new Promise(resolve => {
@@ -16,6 +17,10 @@ function readStdin() {
     process.stdin.on('data', chunk => (raw += chunk));
     process.stdin.on('end', () => resolve(raw));
   });
+}
+
+function run(script, args) {
+  execFileSync(process.execPath, [script, ...args], { stdio: 'pipe' });
 }
 
 const raw = await readStdin();
@@ -28,15 +33,14 @@ try {
 }
 
 const isLintable = Boolean(filePath) && LINTABLE.test(filePath);
-// До етапу 1 eslint ще не встановлено: тоді хук мовчить, а не повертає помилку на кожен запис.
+// Поки інструментів немає в node_modules, хук мовчить, а не повертає помилку на кожен запис.
 if (!isLintable || !existsSync(ESLINT)) process.exit(0);
 
 try {
-  execFileSync(process.execPath, [ESLINT, filePath, '--fix', '--max-warnings', '0', '--no-warn-ignored'], {
-    stdio: 'pipe',
-  });
+  if (existsSync(PRETTIER)) run(PRETTIER, ['--write', '--log-level', 'warn', filePath]);
+  run(ESLINT, [filePath, '--fix', '--max-warnings', '0', '--no-warn-ignored']);
 } catch (error) {
   const report = `${error.stdout ?? ''}${error.stderr ?? ''}`.trim();
-  console.error(report || `eslint впав на ${filePath}`);
+  console.error(report || `lint-fix впав на ${filePath}`);
   process.exit(2);
 }

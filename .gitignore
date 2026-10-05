@@ -5,7 +5,7 @@ dist/
 *.tsbuildinfo
 
 # Дані розробки: БД, моделі, журнали, кеш npm (.claude/logic/01-architecture.md)
-/.data/
+.data/
 *.db
 *.db-wal
 *.db-shm

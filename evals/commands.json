@@ -1,0 +1,535 @@
+{
+  "now": "2026-10-05T10:30",
+  "cases": [
+    {
+      "id": "app-alias-telegram",
+      "kind": "single",
+      "text": "запусти тєлєгу",
+      "calls": [{ "tool": "open_app", "args": { "app": { "contains": "telegram" } } }],
+      "note": "Назва зі словника в профілі."
+    },
+    {
+      "id": "app-chrome",
+      "kind": "single",
+      "text": "відкрий хром",
+      "calls": [{ "tool": "open_app", "args": { "app": { "contains": "chrome" } } }]
+    },
+    {
+      "id": "app-spotify",
+      "kind": "single",
+      "text": "включи спотіфай",
+      "calls": [{ "tool": "open_app", "args": { "app": { "contains": "spotify" } } }]
+    },
+    {
+      "id": "app-calculator-surzhyk",
+      "kind": "single",
+      "text": "открой калькулятор",
+      "calls": [{ "tool": "open_app", "args": { "app": { "contains": "calculator" } } }]
+    },
+    {
+      "id": "app-alias-vscode",
+      "kind": "single",
+      "text": "відкрий вс код",
+      "calls": [{ "tool": "open_app", "args": { "app": { "contains": "code" } } }],
+      "note": "Назва зі словника в профілі."
+    },
+    {
+      "id": "close-chrome",
+      "kind": "single",
+      "text": "закрий хром",
+      "calls": [{ "tool": "close_app", "args": { "app": { "contains": "chrome" } } }]
+    },
+    {
+      "id": "close-spotify-slang",
+      "kind": "single",
+      "text": "вирубай спотіфай",
+      "calls": [{ "tool": "close_app", "args": { "app": { "contains": "spotify" } } }]
+    },
+    {
+      "id": "volume-level-words",
+      "kind": "single",
+      "text": "зроби гучність на тридцять",
+      "calls": [{ "tool": "volume", "args": { "level": 30, "delta": null, "mute": null } }]
+    },
+    {
+      "id": "volume-quieter",
+      "kind": "single",
+      "text": "тихіше",
+      "calls": [
+        {
+          "tool": "volume",
+          "args": { "delta": { "min": -30, "max": -5 }, "level": null, "mute": null }
+        }
+      ]
+    },
+    {
+      "id": "volume-mute",
+      "kind": "single",
+      "text": "вимкни звук",
+      "calls": [{ "tool": "volume", "args": { "mute": true, "level": null, "delta": null } }]
+    },
+    {
+      "id": "volume-max",
+      "kind": "single",
+      "text": "гучність на повну",
+      "calls": [{ "tool": "volume", "args": { "level": 100 } }]
+    },
+    {
+      "id": "volume-half",
+      "kind": "single",
+      "text": "зроби пів гучності",
+      "calls": [{ "tool": "volume", "args": { "level": 50 } }]
+    },
+    {
+      "id": "media-pause",
+      "kind": "single",
+      "text": "постав на паузу",
+      "calls": [{ "tool": "media", "args": { "action": "pause" } }]
+    },
+    {
+      "id": "media-next",
+      "kind": "single",
+      "text": "наступний трек",
+      "calls": [{ "tool": "media", "args": { "action": "next" } }]
+    },
+    {
+      "id": "media-previous",
+      "kind": "single",
+      "text": "давай попередню пісню",
+      "calls": [{ "tool": "media", "args": { "action": "previous" } }]
+    },
+    {
+      "id": "media-resume",
+      "kind": "single",
+      "text": "продовж музику",
+      "calls": [{ "tool": "media", "args": { "action": "play" } }]
+    },
+    {
+      "id": "window-maximize-chrome",
+      "kind": "single",
+      "text": "розгорни хром на весь екран",
+      "calls": [
+        { "tool": "window", "args": { "action": "maximize", "app": { "contains": "chrome" } } }
+      ]
+    },
+    {
+      "id": "window-minimize-all",
+      "kind": "single",
+      "text": "згорни все",
+      "calls": [{ "tool": "window", "args": { "action": "minimize_all" } }]
+    },
+    {
+      "id": "site-youtube",
+      "kind": "single",
+      "text": "відкрий ютуб",
+      "calls": [{ "tool": "open_target", "args": { "target": { "contains": "youtube.com" } } }]
+    },
+    {
+      "id": "folder-downloads",
+      "kind": "single",
+      "text": "відкрий завантаження",
+      "calls": [{ "tool": "open_target", "args": { "target": { "contains": "downloads" } } }]
+    },
+    {
+      "id": "settings-display",
+      "kind": "single",
+      "text": "відкрий налаштування екрану",
+      "calls": [{ "tool": "open_target", "args": { "target": "ms-settings:display" } }]
+    },
+    {
+      "id": "web-search",
+      "kind": "single",
+      "text": "загугли рецепт борщу",
+      "calls": [
+        {
+          "tool": "open_target",
+          "args": { "target": { "pattern": "^https://www\\.google\\.[a-z.]+/search\\?q=." } }
+        }
+      ]
+    },
+    {
+      "id": "alias-project-folder",
+      "kind": "single",
+      "text": "відкрий проект банші",
+      "calls": [{ "tool": "open_target", "args": { "target": { "contains": "banshee" } } }],
+      "note": "Тека зі словника в профілі."
+    },
+    {
+      "id": "find-resume",
+      "kind": "single",
+      "text": "знайди моє резюме",
+      "calls": [{ "tool": "find_files", "args": { "query": { "pattern": "резюме|resume|cv" } } }],
+      "stubs": {
+        "find_files": {
+          "files": [
+            {
+              "path": "C:\\Users\\owner\\Documents\\Резюме 2026.docx",
+              "size_kb": 48,
+              "modified": "2026-09-12 20:41"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "find-screenshots-yesterday",
+      "kind": "single",
+      "text": "які скріншоти я зробив учора",
+      "calls": [
+        {
+          "tool": "find_files",
+          "args": { "folder": { "contains": "screenshots" }, "modified_after": "2026-10-04" }
+        }
+      ],
+      "stubs": {
+        "find_files": {
+          "files": [
+            {
+              "path": "C:\\Users\\owner\\Pictures\\Screenshots\\Screenshot 2026-10-04 183045.png",
+              "size_kb": 412,
+              "modified": "2026-10-04 18:30"
+            },
+            {
+              "path": "C:\\Users\\owner\\Pictures\\Screenshots\\Screenshot 2026-10-04 091512.png",
+              "size_kb": 388,
+              "modified": "2026-10-04 09:15"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "disk-space",
+      "kind": "single",
+      "text": "скільки вільного місця на диску",
+      "calls": [{ "tool": "system_info", "args": { "kind": "disk" } }]
+    },
+    {
+      "id": "lock-pc",
+      "kind": "single",
+      "text": "заблокуй комп",
+      "calls": [{ "tool": "lock_pc" }]
+    },
+    {
+      "id": "powershell-memory",
+      "kind": "single",
+      "text": "що зараз їсть найбільше пам'яті",
+      "calls": [{ "tool": "run_powershell", "args": { "script": { "pattern": "Get-Process" } } }],
+      "stubs": {
+        "run_powershell": {
+          "output": "ProcessName  WorkingSet(MB)\nchrome       1840\nCode          920\nTelegram      410"
+        }
+      }
+    },
+    {
+      "id": "network-ip",
+      "kind": "single",
+      "text": "яка в мене айпі адреса",
+      "calls": [{ "tool": "system_info", "args": { "kind": "network" } }],
+      "alt": [
+        [
+          {
+            "tool": "run_powershell",
+            "args": {
+              "script": { "pattern": "Get-NetIPAddress|Get-NetIPConfiguration|ipconfig" }
+            }
+          }
+        ]
+      ],
+      "stubs": {
+        "run_powershell": { "output": "IPv4Address: 192.168.1.23" }
+      }
+    },
+    {
+      "id": "move-typed-path",
+      "kind": "single",
+      "source": "text",
+      "text": "перемісти D:\\temp\\notes.txt на робочий стіл",
+      "calls": [
+        {
+          "tool": "file_op",
+          "args": {
+            "op": "move",
+            "paths": ["D:\\temp\\notes.txt"],
+            "dest": { "contains": "desktop" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "move-yesterday-screenshots",
+      "kind": "multi",
+      "text": "перенеси вчорашні скріншоти в теку Звіти на робочому столі",
+      "ordered": true,
+      "calls": [
+        {
+          "tool": "find_files",
+          "args": { "folder": { "contains": "screenshots" }, "modified_after": "2026-10-04" }
+        },
+        {
+          "tool": "file_op",
+          "args": {
+            "op": "move",
+            "paths": [
+              "C:\\Users\\owner\\Pictures\\Screenshots\\Screenshot 2026-10-04 091512.png",
+              "C:\\Users\\owner\\Pictures\\Screenshots\\Screenshot 2026-10-04 183045.png"
+            ],
+            "dest": { "contains": ["desktop", "звіти"] }
+          }
+        }
+      ],
+      "stubs": {
+        "find_files": {
+          "files": [
+            {
+              "path": "C:\\Users\\owner\\Pictures\\Screenshots\\Screenshot 2026-10-04 183045.png",
+              "size_kb": 412,
+              "modified": "2026-10-04 18:30"
+            },
+            {
+              "path": "C:\\Users\\owner\\Pictures\\Screenshots\\Screenshot 2026-10-04 091512.png",
+              "size_kb": 388,
+              "modified": "2026-10-04 09:15"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "close-chrome-open-firefox",
+      "kind": "multi",
+      "text": "закрий хром і відкрий фаєрфокс",
+      "calls": [
+        { "tool": "close_app", "args": { "app": { "contains": "chrome" } } },
+        { "tool": "open_app", "args": { "app": { "contains": "firefox" } } }
+      ]
+    },
+    {
+      "id": "youtube-and-volume",
+      "kind": "multi",
+      "text": "відкрий ютуб і зроби гучність сорок",
+      "calls": [
+        { "tool": "open_target", "args": { "target": { "contains": "youtube.com" } } },
+        { "tool": "volume", "args": { "level": 40 } }
+      ]
+    },
+    {
+      "id": "minimize-and-lock",
+      "kind": "multi",
+      "text": "згорни все і заблокуй комп",
+      "calls": [{ "tool": "window", "args": { "action": "minimize_all" } }, { "tool": "lock_pc" }]
+    },
+    {
+      "id": "recycle-recent-pdfs",
+      "kind": "multi",
+      "text": "знайди pdf у завантаженнях за останні три дні і видали їх",
+      "ordered": true,
+      "calls": [
+        {
+          "tool": "find_files",
+          "args": {
+            "folder": { "contains": "downloads" },
+            "query": { "contains": "pdf" },
+            "modified_after": "2026-10-02"
+          }
+        },
+        {
+          "tool": "file_op",
+          "args": {
+            "op": "recycle",
+            "paths": [
+              "C:\\Users\\owner\\Downloads\\invoice-0923.pdf",
+              "C:\\Users\\owner\\Downloads\\ticket.pdf",
+              "C:\\Users\\owner\\Downloads\\manual-router.pdf"
+            ]
+          }
+        }
+      ],
+      "stubs": {
+        "find_files": {
+          "files": [
+            {
+              "path": "C:\\Users\\owner\\Downloads\\invoice-0923.pdf",
+              "size_kb": 210,
+              "modified": "2026-10-04 12:02"
+            },
+            {
+              "path": "C:\\Users\\owner\\Downloads\\ticket.pdf",
+              "size_kb": 95,
+              "modified": "2026-10-03 08:47"
+            },
+            {
+              "path": "C:\\Users\\owner\\Downloads\\manual-router.pdf",
+              "size_kb": 3120,
+              "modified": "2026-10-02 19:20"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "spotify-next-track",
+      "kind": "multi",
+      "text": "відкрий спотіфай і перемкни на наступний трек",
+      "calls": [
+        { "tool": "open_app", "args": { "app": { "contains": "spotify" } } },
+        { "tool": "media", "args": { "action": "next" } }
+      ]
+    },
+    {
+      "id": "rename-found-document",
+      "kind": "multi",
+      "text": "перейменуй чернетку договору в документах на договір-оренди.docx",
+      "ordered": true,
+      "calls": [
+        {
+          "tool": "find_files",
+          "args": {
+            "folder": { "contains": "documents" },
+            "query": { "pattern": "чернет|договір" }
+          }
+        },
+        {
+          "tool": "file_op",
+          "args": {
+            "op": "rename",
+            "paths": ["C:\\Users\\owner\\Documents\\Чернетка договору.docx"],
+            "dest": "договір-оренди.docx"
+          }
+        }
+      ],
+      "stubs": {
+        "find_files": {
+          "files": [
+            {
+              "path": "C:\\Users\\owner\\Documents\\Чернетка договору.docx",
+              "size_kb": 36,
+              "modified": "2026-10-01 16:22"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "copy-photos-from-usb",
+      "kind": "multi",
+      "text": "скопіюй усі фото з флешки E на диск D у теку Фото",
+      "ordered": true,
+      "calls": [
+        { "tool": "find_files", "args": { "folder": { "contains": "e:" } } },
+        {
+          "tool": "file_op",
+          "args": {
+            "op": "copy",
+            "paths": ["E:\\DCIM\\IMG_0101.jpg", "E:\\DCIM\\IMG_0102.jpg", "E:\\DCIM\\IMG_0103.jpg"],
+            "dest": { "contains": ["d:", "фото"] }
+          }
+        }
+      ],
+      "stubs": {
+        "find_files": {
+          "files": [
+            { "path": "E:\\DCIM\\IMG_0103.jpg", "size_kb": 4210, "modified": "2026-09-28 17:05" },
+            { "path": "E:\\DCIM\\IMG_0102.jpg", "size_kb": 3980, "modified": "2026-09-28 17:04" },
+            { "path": "E:\\DCIM\\IMG_0101.jpg", "size_kb": 4105, "modified": "2026-09-28 17:02" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "find-and-open-presentation",
+      "kind": "multi",
+      "text": "знайди презентацію про бюджет і відкрий її",
+      "ordered": true,
+      "calls": [
+        { "tool": "find_files", "args": { "query": { "pattern": "бюджет|budget|pptx" } } },
+        {
+          "tool": "open_target",
+          "args": { "target": "C:\\Users\\owner\\Documents\\Бюджет 2026.pptx" }
+        }
+      ],
+      "stubs": {
+        "find_files": {
+          "files": [
+            {
+              "path": "C:\\Users\\owner\\Documents\\Бюджет 2026.pptx",
+              "size_kb": 2250,
+              "modified": "2026-09-30 11:40"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "escalate-owner-request",
+      "kind": "multi",
+      "text": "подумай краще, як мені розібрати теку завантаження, там купа всього",
+      "calls": [{ "tool": "escalate", "args": { "reason": "owner_request" } }],
+      "stubs": {
+        "escalate": {
+          "answer": "1) Sort Downloads by type into Documents, Pictures and an Installers folder. 2) Recycle installers older than three months. 3) Move everything older than a year to D:\\Archive."
+        }
+      }
+    },
+    {
+      "id": "escalate-complex-plan",
+      "kind": "multi",
+      "text": "склади план переїзду всіх моїх проектів з диска C на D, щоб нічого не загубилось і все запускалось",
+      "calls": [{ "tool": "escalate", "args": { "reason": "complex_plan" } }],
+      "stubs": {
+        "escalate": {
+          "answer": "1) List the projects in C:\\Users\\owner\\projects. 2) Copy them to D:\\work-project with robocopy /E. 3) Compare file counts. 4) Update paths in the editor and terminal settings. 5) Run every project. 6) After a week, recycle the originals."
+        }
+      }
+    },
+    {
+      "id": "mute-and-pause",
+      "kind": "multi",
+      "text": "вимкни звук і постав на паузу",
+      "calls": [
+        { "tool": "volume", "args": { "mute": true } },
+        { "tool": "media", "args": { "action": "pause" } }
+      ]
+    },
+    {
+      "id": "clarify-close-it",
+      "kind": "clarify",
+      "text": "закрий його"
+    },
+    {
+      "id": "clarify-delete-everything",
+      "kind": "clarify",
+      "text": "видали все"
+    },
+    {
+      "id": "clarify-move-these-files",
+      "kind": "clarify",
+      "text": "перемісти ці файли"
+    },
+    {
+      "id": "clarify-yesterday-app",
+      "kind": "clarify",
+      "text": "запусти ту програму, яку я вчора відкривав"
+    },
+    {
+      "id": "clarify-rename-file",
+      "kind": "clarify",
+      "text": "перейменуй файл"
+    },
+    {
+      "id": "refuse-send-message",
+      "kind": "refuse",
+      "text": "напиши Олегу в телеграм, що я запізнюсь на десять хвилин"
+    },
+    {
+      "id": "refuse-phone-call",
+      "kind": "refuse",
+      "text": "подзвони мамі"
+    },
+    {
+      "id": "refuse-reminder",
+      "kind": "refuse",
+      "text": "нагадай мені о третій забрати посилку"
+    }
+  ]
+}

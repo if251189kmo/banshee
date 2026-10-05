@@ -1,0 +1,15 @@
+{
+  "name": "@banshee/pc",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Banshee: MCP-сервер інструментів ПК — програми, вікна, звук, файли, PowerShell",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./definitions": "./src/definitions.ts"
+  },
+  "dependencies": {
+    "@banshee/shared": "0.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  }
+}

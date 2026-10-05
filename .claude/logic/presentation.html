@@ -780,7 +780,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
 <main class="deck" lang="uk">
 
   <section class="hero" id="top" aria-labelledby="t-hero">
-    <p class="eyebrow">ТЗ · версія 3.7 від 2026-10-03 · статус: ТЗ готове, коду ще немає</p>
+    <p class="eyebrow">ТЗ · версія 3.21 від 2026-10-05 · статус: розробка, виконано 33 % ТЗ</p>
     <h1 id="t-hero">Banshee</h1>
     <p class="lede">Персональний голосовий асистент для Windows. Прокидається на слово «Banshee», розуміє голос і текст українською, вчиться на спілкуванні з власником і виконує команди на ПК. Мозок — Claude Haiku 4.5.</p>
     <dl class="facts">
@@ -812,16 +812,16 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
           <span style="left:25%">ban</span><span style="left:73.6%">shee</span>
         </div>
       </div>
-      <figcaption>Склад «ban» — форманти голосної нижче 3 кГц, «shee» — шиплячий шум 2–7 кГц і висока голосна. Рідкісне двоскладове слово з такою чіткою формою легко відрізнити від звичайної мови. sherpa-onnx шукає його на пристрої; звук іде в хмару тільки після активації.</figcaption>
+      <figcaption>Склад «ban» — форманти голосної нижче 3 кГц, «shee» — шиплячий шум 2–7 кГц і висока голосна. Рідкісне двоскладове слово з такою чіткою формою легко відрізнити від звичайної мови. Власна модель слова шукає його на пристрої; звук іде в хмару тільки після активації.</figcaption>
     </figure>
 
     <div class="news" role="note" aria-labelledby="t-news">
-      <p class="eyebrow" id="t-news">Версія 3.7 · перевірка перед кодом</p>
+      <p class="eyebrow" id="t-news">Версія 3.21 · рішення власника: слово «Banshee», перевірка після встановлення</p>
       <ul class="news-list">
-        <li><a href="#mozok">Мозок</a> — факти про API звірено з документацією Anthropic: Haiku 4.5 підтримує computer use (UI Automation лишається — швидше й дешевше), повтори запитів — лише в SDK, дата й час — у тексті ходу, щоб працював кеш історії; Sonnet 5.5 — effort <code>medium</code> і обробка відмов.</li>
-        <li><a href="#holos">Голос</a> — інтеграція Whisper без Build Tools і без мережевого порту, вибір на кроці 0.3.</li>
-        <li><a href="#plan">План</a> — 50 + 20 фраз для голосу, 10 год фонового аудіо, автор еталонних команд, <code>routines</code> і <code>aliases</code> на кроці 1.3, погода — на етапі 4.</li>
-        <li><b>3.6:</b> голос лише локальний — Whisper і Piper, без Azure.</li>      </ul>    </div>
+        <li><a href="#holos">Слово «Banshee»</a> — рішення власника: власна модель слова з перевіркою голосу на «слово + команда», далі — довчання. Ключове рішення «sherpa-onnx KWS» замінено.</li>
+        <li><a href="#plan">План</a> — рішення власника: дії інструментів ПК він перевіряє сам у встановленій програмі, після кроку 1.9. Код і ТЗ етапів 0–1 — у локальному git.</li>
+        <li><b>3.20:</b> голос — <code>tetiana</code>; етап 1 паралельно з етапом 0 — кроки 1.2–1.6, 1.8 і 0.8; ТЗ — 33 %.</li>
+      </ul>    </div>
   </section>
 
   <section class="slide" id="vymohy" aria-labelledby="t-req">
@@ -852,7 +852,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         <div class="req"><span class="id">N3</span><span class="what">Низька вартість</span><span class="how">Платимо лише за API Claude: кеш на 1 год, одна відповідь на просту дію, ліміти $1 на день і $20 на місяць. Голос — безкоштовно.</span><span class="kpi"><b>критерій</b>API ≤ $15 на місяць при 50 командах на день; інші сервіси — $0</span></div>
         <div class="req"><span class="id">N4</span><span class="what">Надійність</span><span class="how">Автозапуск, перезапуск core, базовий режим без інтернету.</span><span class="kpi"><b>критерій</b>core відновлюється за ≤ 5 с; без інтернету працюють рутини</span></div>
         <div class="req"><span class="id">N5</span><span class="what">Приватність</span><span class="how">Аудіо не залишає ПК: слово, розпізнавання й озвучка локальні; секрети не зберігаються; строки зберігання.</span><span class="kpi"><b>критерій</b>транскрипти старші 90 днів видаляються; «забудь» видаляє запис</span></div>
-        <div class="req"><span class="id">N6</span><span class="what">Легкість у фоні</span><span class="how">Wake word і трей працюють постійно.</span><span class="kpi"><b>критерій</b>у спокої CPU &lt; 3 %, RAM &lt; 500 МБ (без браузера)</span></div>
+        <div class="req"><span class="id">N6</span><span class="what">Легкість у фоні</span><span class="how">Wake word і трей працюють постійно.</span><span class="kpi"><b>критерій</b>у спокої CPU &lt; 3 %, RAM ≤ 1,5 ГБ (без браузера; переглянуто 2026-10-04)</span></div>
         <div class="req"><span class="id">N7</span><span class="what">Сумісність</span><span class="how">Windows 10 22H2 (збірка 19045) і всі новіші, включно з Windows 11.</span><span class="kpi"><b>критерій</b>встановлюється й проходить перевірки на Windows 10 22H2 і найновішій Windows 11</span></div>
       </div>
     </div>
@@ -881,7 +881,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
   <section class="slide" id="rishennia" aria-labelledby="t-dec">
     <div class="head">
       <p class="eyebrow"><span class="no">02 / 16</span>Рішення</p>
-      <h2 id="t-dec">Власник ухвалив 38 рішень і 4 відклав</h2>
+      <h2 id="t-dec">Власник ухвалив 44 рішення і 4 відклав</h2>
       <p class="lede">Кожне рішення має відкинуту альтернативу: якщо обставини зміняться, переглядати варто саме цю пару. Пропозицій, що чекають підтвердження, немає. Кожне нове рішення власника одразу вноситься в ТЗ з датою.</p>
     </div>
     <div class="decisions" role="list">
@@ -898,9 +898,15 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
       <div class="dec" role="listitem"><span class="take">Electron + React</span><span class="instead"><s>Tauri, нативний UI</s></span><span class="why">Той самий стек; вбудоване ехоподавлення Chromium.</span><span class="st own">✓ 2026-10-03</span></div>
       <div class="dec" role="listitem"><span class="take">Монорепо на npm workspaces</span><span class="instead"><s>pnpm</s></span><span class="why">Вбудовані в npm, без додаткових інструментів.</span><span class="st own">✓ 2026-10-03</span></div>
       <div class="dec" role="listitem"><span class="take">Definition of Done: typecheck, lint, тести, еталонний набір</span><span class="instead empty">—</span><span class="why">Зміна готова, лише коли пройшли всі перевірки.</span><span class="st own">✓ 2026-10-03</span></div>      <div class="dec" role="listitem"><span class="take">Власний агентний цикл на <code>@anthropic-ai/sdk</code></span><span class="instead"><s>Agent SDK як ядро</s></span><span class="why">Мінімальна затримка й повний контроль над тим, що потрапляє в контекст.</span><span class="st own">✓ 2026-10-03</span></div>
-      <div class="dec" role="listitem"><span class="take">sherpa-onnx для слова «Banshee»</span><span class="instead"><s>Porcupine</s></span><span class="why">Picovoice з 30.06.2026 не має безкоштовного тарифу; sherpa-onnx відкритий, працює в Node і не потребує навчання.</span><span class="st own">✓ 2026-10-03</span></div>
-      <div class="dec" role="listitem"><span class="take">Голос лише локально: Whisper на відеокарті, Piper <code>uk_UA</code></span><span class="instead"><s>Azure Speech F0, ElevenLabs</s></span><span class="why">Рішення власника: картку не вводимо, а Azure без неї не активується. $0, без облікових записів, працює без інтернету, аудіо не залишає ПК. Ризик — швидкість Whisper на GTX 960; запасний план — хмарний Whisper Groq без картки, за рішенням власника.</span><span class="st own">✓ 2026-10-03</span></div>
+      <div class="dec" role="listitem"><span class="take">Власна модель слова «Banshee» з перевіркою голосу</span><span class="instead"><s>sherpa-onnx KWS, Porcupine</s></span><span class="why">Рішення власника за вимірами 0.5: готові моделі KWS ловлять його вимову щонайбільше 12 з 33, Porcupine з 30.06.2026 без безкоштовного тарифу. Ознаки openWakeWord + мала нейромережа на TypeScript вчаться на ПК за хвилини; з перевіркою голосу на «слово + команда» — ≤ 1 хибне на 10 год. Ціна — 17 % пропусків на старті при цілі 5 %: далі довчання.</span><span class="st own">✓ 2026-10-05</span></div>
+      <div class="dec" role="listitem"><span class="take">Голос лише локально: Parakeet на процесорі, Piper <code>tetiana</code> high</span><span class="instead"><s>Azure Speech F0, ElevenLabs</s></span><span class="why">Рішення власника: картку не вводимо, а Azure без неї не активується. $0, без облікових записів, працює без інтернету, аудіо не залишає ПК. Хмарний Whisper Groq — лише за рішенням власника.</span><span class="st own">✓ 2026-10-03</span></div>
+      <div class="dec" role="listitem"><span class="take">Розпізнавання — Parakeet TDT 0.6B v3 на процесорі</span><span class="instead"><s>Whisper large-v3-turbo на відеокарті</s></span><span class="why">Рішення власника за вимірами 0.3: 0,47 с на фразу проти 1,67 с у Whisper на GTX 960; у процесі Node без порту й Build Tools. Ціна: точність 72 % на старті — словник назв, гарячі слова й виправлення (крок 2.2); RAM ≈ 0,8 ГБ — N6 переглянуто до 1,5 ГБ. Запасний — Whisper на відеокарті лише для незрозумілих команд.</span><span class="st own">✓ 2026-10-04</span></div>
+      <div class="dec" role="listitem"><span class="take">Голос озвучки — Piper <code>tetiana</code> high</span><span class="instead"><s>Piper <code>lada</code> x_low, Coqui <code>olena</code></s></span><span class="why">Рішення власника за вимірами 0.4: найчіткіший жіночий голос — 15–17 помилок на 100 слів у розпізнавача проти 21–23. Нова фраза звучить через 0,45 с, тож часті фрази готуються заздалегідь.</span><span class="st own">✓ 2026-10-04</span></div>
+      <div class="dec" role="listitem"><span class="take">Одна тека <code>Banshee</code> на диску, який обрав користувач</span><span class="instead"><s>програма й дані в різних теках профілю</s></span><span class="why">Вимога власника: програма, дані, моделі й журнали — в одній теці, яку легко знайти, перенести й видалити. Поза нею — лише ярлики, запис для видалення, автозапуск і ключі в Credential Manager.</span><span class="st own">✓ 2026-10-04</span></div>
+      <div class="dec" role="listitem"><span class="take">Довідка в програмі; системні вимоги для користувача</span><span class="instead"><s>окрема документація</s></span><span class="why">Вимога власника: коротка інструкція там, де користувач працює; кожне посилання відкриває потрібне налаштування. Мінімальні й рекомендовані вимоги — у встановлювачі, довідці й «Про програму».</span><span class="st own">✓ 2026-10-04</span></div>
       <div class="dec" role="listitem"><span class="take">Розпізнавання власника за голосом, sherpa-onnx</span><span class="instead"><s>слухати будь-який голос</s></span><span class="why">Телевізор та інші люди не керують ПК і не потрапляють у пам'ять. Вимога власника.</span><span class="st own">✓ власник</span></div>
+      <div class="dec" role="listitem"><span class="take">Мікрофон — Bluetooth-гарнітура JBL TUNE710BT, поки що: на голові або на столі</span><span class="instead"><s>мікрофон у кімнаті: вхід Realtek, вебкамера</s></span><span class="why">Вибір власника. Режим дзвінка дає 16 кГц моно — формат розпізнавання й KWS; на столі гарнітура чує слово з 3 м. Ціна: поки Banshee слухає, музика в гарнітурі гірша. Що робити, коли гарнітури немає поруч, відкладено: поки вона завжди ввімкнена й поруч.</span><span class="st own">✓ 2026-10-04</span></div>
+      <div class="dec" role="listitem"><span class="take">Налаштування під голос і мікрофон у програмі</span><span class="instead"><s>налаштування лише розробником на етапі 0</s></span><span class="why">Вимога власника: той, хто встановив Banshee, сам налаштовує його — перевірка мікрофона, навчання слова, мій голос. У майстрі й у Налаштуваннях → Голос, до 3 хв.</span><span class="st own">✓ 2026-10-04</span></div>
       <div class="dec" role="listitem"><span class="take">Голосовий профіль лише на цьому ПК</span><span class="instead"><s>синхронізувати профіль</s></span><span class="why">Біометричні дані; інший мікрофон — інший відбиток; запис голосу займає 30 с.</span><span class="st own">✓ 2026-10-03</span></div>
       <div class="dec" role="listitem"><span class="take">Чужі голоси ігноруються</span><span class="instead"><s>гостьовий режим</s></span><span class="why">Вибір власника.</span><span class="st own">✓ 2026-10-03</span></div>
       <div class="dec" role="listitem"><span class="take">Гарячі клавіші Ctrl+Shift+B / M / X</span><span class="instead"><s>Ctrl+Alt+B / M / X</s></span><span class="why">Вибір власника; ті самі поєднання в Teams і Discord власник вимкне сам.</span><span class="st own">✓ 2026-10-03</span></div>
@@ -959,7 +965,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
           <text class="dg-s" x="374" y="117" text-anchor="middle">+ голос власника</text>
           <rect class="dg-node" x="439" y="52" width="72" height="48" rx="7"/>
           <text class="dg-t" x="475" y="72" text-anchor="middle">STT</text>
-          <text class="dg-s" x="475" y="89" text-anchor="middle">Whisper</text>
+          <text class="dg-s" x="475" y="89" text-anchor="middle">Parakeet</text>
           <rect class="dg-node" x="532" y="52" width="104" height="48" rx="7"/>
           <text class="dg-t" x="584" y="72" text-anchor="middle">Оверлей</text>
           <text class="dg-s" x="584" y="89" text-anchor="middle">гаряча клавіша</text>
@@ -1063,10 +1069,10 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         <thead><tr><th>Компонент</th><th>Відповідальність</th><th>Технології</th></tr></thead>
         <tbody>
           <tr><td class="strong"><code>apps/core</code></td><td>агентний цикл, маршрутизація, політика дій, пам'ять, журнал, облік і ліміт витрат, стан ШІ й базовий режим, статистика, навчання, експорт і синхронізація</td><td>Node.js в <code>utilityProcess</code> Electron, <code>@anthropic-ai/sdk</code>, <code>@modelcontextprotocol/sdk</code>, <code>better-sqlite3</code></td></tr>
-          <tr><td class="strong"><code>apps/desktop</code></td><td>трей, оверлей, картки підтвердження, центр керування з «Активністю», мікрофон, wake word, VAD, розпізнавання власника, STT, TTS</td><td>Electron + React, Fluent UI System Icons, sherpa-onnx: wake word, VAD, відбиток голосу, Whisper і Piper — усе локально</td></tr>
+          <tr><td class="strong"><code>apps/desktop</code></td><td>трей, оверлей, картки підтвердження, центр керування з «Активністю», мікрофон, wake word, VAD, розпізнавання власника, STT, TTS</td><td>Electron + React, Fluent UI System Icons, sherpa-onnx: wake word, VAD, відбиток голосу, Parakeet і Piper — усе локально</td></tr>
           <tr><td class="strong"><code>mcp/pc</code></td><td>інструменти ПК: програми, вікна, звук, файли, PowerShell</td><td>MCP-сервер на Node; один постійний процес PowerShell + UI Automation</td></tr>
           <tr><td class="strong">Playwright MCP</td><td>дії в браузері</td><td>зовнішній пакет <code>@playwright/mcp</code>, окремий профіль браузера</td></tr>
-          <tr><td class="strong"><code>packages/shared</code></td><td>спільні типи й протокол між core і desktop</td><td>TypeScript</td></tr>
+          <tr><td class="strong"><code>packages/shared</code></td><td>спільні типи, протокол core ↔ desktop з перевіркою кожного повідомлення, схема 37 налаштувань — крок 1.2</td><td>TypeScript, zod 4 з українськими повідомленнями</td></tr>
           <tr><td class="strong"><code>evals/</code></td><td>еталонний набір команд і сценарії ін'єкцій</td><td>заглушки MCP-серверів</td></tr>
         </tbody>
       </table>
@@ -1078,11 +1084,11 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         <ul class="ticks">
           <li><b>desktop</b> — точка входу: один екземпляр, автозапуск при вході в Windows, значок у треї.</li>
           <li><b>core</b> — дочірній процес desktop (<code>utilityProcess</code>), зв'язок через <code>MessagePort</code> без мережевих портів. Після падіння desktop перезапускає core за ≤ 5 с; після 3 падінь за хвилину — повідомлення в треї.</li>
-          <li><b>Аудіо:</b> мікрофон і озвучка — в одному renderer-процесі, тож Chromium прибирає власний голос Banshee з мікрофона. Wake word, VAD і перевірка голосу власника працюють у main; Whisper і Piper — в окремому процесі voice, щоб не блокувати інтерфейс.</li>
+          <li><b>Аудіо:</b> мікрофон і озвучка — в одному renderer-процесі, тож Chromium прибирає власний голос Banshee з мікрофона. Wake word, VAD і перевірка голосу власника працюють у main; Parakeet і Piper — в окремому процесі voice, щоб не блокувати інтерфейс.</li>
           <li><b>MCP-сервери</b> — дочірні процеси core (stdio). <code>mcp/pc</code> тримає один постійний процес PowerShell: запуск на кожну дію коштує сотні мілісекунд.</li>
           <li><b>Без інтернету</b> — базовий режим: рутини й вбудовані команди працюють, голос працює як завжди — він локальний; команди в чергу не ставляться.</li>
           <li>Звичайний застосунок у сесії користувача, а не служба Windows: службам недоступний робочий стіл.</li>
-          <li><b>Встановлення</b> — для поточного користувача, без прав адміністратора: програма в <code>%LOCALAPPDATA%\Programs\Banshee</code>, дані в <code>%LOCALAPPDATA%\Banshee</code>. Моделі завантажуються під час першого запуску. Майстер першого запуску: мікрофон, запис голосу власника, ключ API (можна пропустити й працювати в базовому режимі), перенесення пам'яті.</li>
+          <li><b>Встановлення</b> — для поточного користувача, без прав адміністратора, у теку, яку обрав користувач: типово <code>%LOCALAPPDATA%\Banshee</code>, можна <code>D:\Banshee</code>. Усе в одній теці: <code>app\</code> — програма, <code>data\</code> — пам'ять і налаштування, <code>models\</code> — моделі (~0,7 ГБ, качаються під час першого запуску), <code>logs\</code>. Хмарну теку встановлювач не приймає. Майстер першого запуску: мікрофон з перевіркою, слово «Banshee» під голос, запис голосу власника (усі три можна пропустити), ключ API (можна пропустити й працювати в базовому режимі), перенесення пам'яті.</li>
           <li>Референси для <code>mcp/pc</code>: desk-mcp і mcp-windows. Код перевірити перед використанням.</li>
         </ul>
       </div>
@@ -1114,7 +1120,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
             <tr><td class="strong"><code>close_app</code></td><td>закрити програму</td><td>зміна</td><td>replayable</td></tr>
             <tr><td class="strong"><code>volume</code></td><td>гучність і вимкнення звуку</td><td>безпечна</td><td>final, replayable, locked</td></tr>
             <tr><td class="strong"><code>media</code></td><td>відтворення, пауза, наступна, попередня</td><td>безпечна</td><td>final, replayable, locked</td></tr>
-            <tr><td class="strong"><code>window</code></td><td>показати, згорнути, розгорнути вікно</td><td>безпечна</td><td>final, replayable</td></tr>
+            <tr><td class="strong"><code>window</code></td><td>показати, згорнути, розгорнути вікно; згорнути всі</td><td>безпечна</td><td>final, replayable</td></tr>
             <tr><td class="strong"><code>open_target</code></td><td>відкрити теку, файл чи сайт</td><td>безпечна</td><td>final, replayable</td></tr>
             <tr><td class="strong"><code>find_files</code></td><td>знайти файли за назвою чи датою</td><td>безпечна</td><td>—</td></tr>
             <tr><td class="strong"><code>file_op</code></td><td>перемістити, скопіювати, перейменувати, видалити в Кошик</td><td>зміна; понад 20 файлів — небезпечна</td><td>undo</td></tr>
@@ -1134,18 +1140,36 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
           <li>Node.js 22 LTS — на ПК власника 22.22.2; npm workspaces; TypeScript <code>strict</code>; electron-vite; ESLint і Prettier; Vitest; Playwright для Electron.</li>
           <li>Electron — точна версія. Нативні модулі (<code>better-sqlite3</code>, <code>sherpa-onnx-node</code>, <code>@napi-rs/keyring</code>) — лише з готовими збірками: Build Tools на ПК немає, а на C: мало місця.</li>
           <li>Дані в розробці й кеш npm — <code>.data/</code> на диску D:. <code>.mcp.json</code> і <code>.claude/settings.local.json</code> — у <code>.gitignore</code>, щоб токени не потрапили в git. Ключ Claude — у Credential Manager через <code>@napi-rs/keyring</code>; поки вікна налаштувань немає, його вводить власник командою <code>npm run key</code>.</li>
-          <li>Скрипти: <code>npm run check</code> (typecheck, lint, тести), <code>key</code> (ключі, запускає власник), <code>check:api</code> (ключі без виводу), <code>evals</code>, <code>dev</code>, <code>build</code>.</li>
+          <li>Скрипти: <code>npm run check</code> (typecheck, lint, тести), <code>key</code> (ключі, запускає власник), <code>check:api</code> (ключі без виводу), <code>evals</code>, <code>recorder</code> (записи етапу 0), <code>recordings</code> (їх перевірка), <code>dev</code>, <code>build</code>.</li>
         </ul>
       </div>
       <div class="block">
         <h3>Діагностика</h3>
         <ul class="ticks">
-          <li>Журнал роботи — <code>%LOCALAPPDATA%\Banshee\logs</code>, 5 файлів по 5 МБ. Тексту команд, транскриптів і секретів у ньому немає.</li>
+          <li>Журнал роботи — <code>logs\</code> у теці Banshee, 5 файлів по 5 МБ. Тексту команд, транскриптів і секретів у ньому немає.</li>
           <li>«Зібрати діагностику» — ZIP із журналами й версіями, без пам'яті й налаштувань.</li>
-          <li>Видалення програми лишає дані; «Видалити всі дані» — у «Про програму», разом із ключами.</li>
-          <li>Моделі (~1 ГБ) можна тримати на іншому диску.</li>
+          <li>Видалення програми прибирає <code>app\</code>, а дані й моделі лишає; «Видалити всі дані» — у «Про програму», разом із ключами.</li>
+          <li>Поза текою Banshee — лише ярлики, запис для видалення, автозапуск і ключі в Credential Manager.</li>
         </ul>
       </div>
+    </div>
+    <div class="block">
+      <h3>Системні вимоги · попередні</h3>
+      <div class="tbl">
+        <table>
+          <thead><tr><th></th><th>Мінімальні</th><th>Рекомендовані</th></tr></thead>
+          <tbody>
+            <tr><td class="strong">Windows</td><td>10 22H2 (збірка 19045), 64-біт</td><td>11, 64-біт</td></tr>
+            <tr><td class="strong">Процесор</td><td>4 ядра x64, рівня Core i5-6600 (2015): фраза розпізнається за ≈ 0,5 с</td><td>6 ядер і більше, новіший</td></tr>
+            <tr><td class="strong">Оперативна пам'ять</td><td>8 ГБ; Banshee займає до 1,5 ГБ</td><td>16 ГБ</td></tr>
+            <tr><td class="strong">Місце на диску</td><td>3 ГБ вільного</td><td>5 ГБ на SSD</td></tr>
+            <tr><td class="strong">Відеокарта</td><td>не потрібна</td><td>не потрібна</td></tr>
+            <tr><td class="strong">Мікрофон</td><td>будь-який; Bluetooth-гарнітура — з широкою смугою 16 кГц</td><td>гарнітура або USB-мікрофон</td></tr>
+            <tr><td class="strong">Інтернет і ключ Claude API</td><td>для ШІ; без них — базовий режим</td><td>стабільний зв'язок, ≈ $11 на місяць</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="cost-assume">Показуються у встановлювачі, довідці й «Про програму» поруч з даними ПК. Встановлювач перевіряє Windows, ядра, RAM і місце: слабший ПК — попередження, а не заборона. Числа підтверджують кроки 0.7–0.8 і 2.2.</p>
     </div>
     <p class="src">джерело: .claude/logic/01-architecture.md</p>
   </section>
@@ -1241,11 +1265,11 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
       <table>
         <thead><tr><th>Ланка</th><th>Основний варіант</th><th>Альтернатива</th></tr></thead>
         <tbody>
-          <tr><td class="strong">Wake word «Banshee»</td><td>sherpa-onnx KWS: будь-яке слово без навчання, Node-модуль</td><td>openWakeWord: власна модель, навчання в Colab (Python)</td></tr>
+          <tr><td class="strong">Wake word «Banshee»</td><td>власна модель — <b>рішення власника 2026-10-05</b>: ознаки openWakeWord + мала нейромережа на TypeScript + перевірка голосу на «слово + команда»; 17 % пропусків, ≤ 1 хибне на 10 год, далі — довчання</td><td>довша фраза активації — лише за рішенням власника; готові sherpa-onnx KWS ловлять ≤ 12 з 33</td></tr>
           <tr><td class="strong">Кінець фрази (VAD)</td><td>Silero VAD через sherpa-onnx, пауза 0,5 с</td><td>—</td></tr>
           <tr><td class="strong">Голос власника</td><td>sherpa-onnx: відбиток голосу й порівняння з профілем власника</td><td>—</td></tr>
-          <tr><td class="strong">STT</td><td>Whisper large-v3-turbo q5 на відеокарті: sherpa-onnx або whisper.cpp, обрати на етапі 0</td><td>менша модель; хмарний Whisper без картки — за рішенням власника</td></tr>
-          <tr><td class="strong">TTS</td><td>Piper <code>uk_UA</code> через sherpa-onnx</td><td>інший голос Piper <code>uk_UA</code></td></tr>
+          <tr><td class="strong">STT</td><td>Parakeet TDT 0.6B v3 на процесорі через <code>sherpa-onnx-node</code> — рішення власника 2026-10-04</td><td>запасний варіант 3: Whisper на відеокарті для незрозумілих команд; хмарний Whisper Groq — за рішенням власника</td></tr>
+          <tr><td class="strong">TTS</td><td>Piper <code>tetiana</code> high через sherpa-onnx — рішення власника 2026-10-04: найчіткіший жіночий голос; часті фрази готові заздалегідь</td><td>швидші <code>lada</code> чи <code>olena</code>, якщо затримка нових фраз заважатиме</td></tr>
           <tr><td class="strong">Ехоподавлення</td><td>вбудоване в Chromium (<code>getUserMedia</code>)</td><td>—</td></tr>
         </tbody>
       </table>
@@ -1253,34 +1277,38 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
 
     <div class="note" role="note">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6 15.2 14.4H.8z" class="dot-warn"/><path d="M8 6.2v3.6" class="ic-glyph on-warn"/><circle cx="8" cy="12.1" r="0.95" class="ic-dot"/></svg>
-      <p><b>Porcupine не підходить.</b> Picovoice закрив безкоштовний тариф 30.06.2026, а планів для особистого використання в нього немає.</p>
+      <p><b>Слово «Banshee», крок 0.5.</b> Готові моделі KWS вчились на англійській і китайській: коротке «Ба́нші» власника для них — інше слово. Рішення власника 2026-10-05 — власна модель слова з перевіркою голосу: ≤ 1 хибне спрацювання на 10 год, 17 % пропусків (ціль — 5 %). Далі — довчання: ітерація 5 рахує ознаки потоком, як продукт, а в продукті модель довчається на вимовах із майстра й на тих, після яких власник справді дав команду. Porcupine не підходить: Picovoice закрив безкоштовний тариф 30.06.2026.</p>
     </div>
 
     <div class="block">
       <h3>Вартість голосу: $0</h3>
       <ul class="ticks">
         <li><b>Рішення власника:</b> голос лише локально. Обліковий запис Azure без даних картки не активується, а вводити картку власник не хоче.</li>
-        <li><b>Розпізнавання — Whisper large-v3-turbo</b>, стиснутий q5 (~0,55 ГБ), на відеокарті. <b>Озвучка — Piper</b> з українським голосом: <code>lada</code>, <code>mykyta</code>, <code>oleksa</code>, <code>tetiana</code>, <code>ukrainian_tts</code>; голос власник обирає на слух.</li>
+        <li><b>Розпізнавання — Parakeet TDT 0.6B v3</b> (int8, ~0,55 ГБ) на процесорі. <b>Озвучка — Piper <code>tetiana</code> high</b>, рішення власника 2026-10-04: найчіткіший жіночий голос (15–17 помилок на 100 слів у розпізнавача проти 21–23). Перший звук нової фрази — 0,45 с, тож часті фрази готуються заздалегідь. Core перед озвученням прибирає лапки, назви пише кирилицею, числа — словами.</li>
         <li><b>$0, без облікових записів, ключів і лімітів.</b> Працює без інтернету; аудіо не залишає ПК.</li>
-        <li><b>Запасний план</b>, якщо Whisper не вкладеться в ціль етапу 0: хмарний Whisper Groq — безкоштовно й без картки, 2000 запитів і 8 год аудіо на день. Аудіо тоді йде в хмару; рішення — за власником.</li>
+        <li><b>Запасний план</b> — варіант 3: Whisper на відеокарті лише для команд, які Haiku не зрозумів. Хмарний Whisper Groq — безкоштовно й без картки, але аудіо йде в хмару; лише за рішенням власника.</li>
         <li><b>Не беремо:</b> Azure Speech F0 — потрібна картка; ElevenLabs — замалий безкоштовний обсяг; Edge TTS — неофіційний доступ, який Microsoft може закрити.</li>
       </ul>
     </div>
 
     <div class="cols">
       <div class="block">
-        <h3>Локальний Whisper і відеокарта</h3>
+        <h3>Розпізнавання: Parakeet на процесорі</h3>
         <ul class="ticks">
-          <li><b>Перевірено 2026-10-03:</b> NVIDIA GeForce GTX 960 (2015) з 2 ГБ, з них ~0,85 ГБ зайняв робочий стіл; процесор Core i5-6600, 32 ГБ RAM.</li>
-          <li>Whisper large-v3-turbo займає ~1,6 ГБ у fp16 і ~0,55 ГБ стиснутим (q5): на 2 ГБ влізе лише стиснутий і впритул. Тензорних ядер у GTX 960 немає, тож швидкість — головний ризик.</li>
-          <li><b>Рішення:</b> Whisper — основне розпізнавання, в окремому процесі voice. Стартує з першою тишею, не чекаючи кінця паузи 0,5 с. Ціль етапу 0 — фраза ~5 с за ≤ 0,8 с і ≥ 90 % правильних назв і чисел.</li>
-          <li><b>Інтеграція</b> — без Build Tools і без мережевого порту, вибір на кроці 0.3: <code>sherpa-onnx-node</code> або Node-API-обгортка whisper.cpp з готовою збіркою під CUDA чи Vulkan. <code>whisper-server</code> на localhost — лише за рішенням власника.</li>
+          <li><b>Рішення власника 2026-10-04</b> за вимірами кроку 0.3 на 50 командах: Parakeet TDT 0.6B v3 — 0,47 с на фразу, Haiku з розпізнаного тексту — 72 %; Whisper turbo на GTX 960 — 1,67 с і 80 %. Еталонний текст — 98 %.</li>
+          <li><b>Чому не Whisper:</b> його кодувальник завжди обробляє вікно 30 с — 1,66 с на фразу будь-якої довжини; коротше вікно псує якість.</li>
+          <li><b>Пам'ять:</b> модель ≈ 0,8 ГБ у RAM, відеокарта вільна; ціль N6 переглянуто до 1,5 ГБ. ПК власника — Core i5-6600, 32 ГБ RAM, GTX 960 на 2 ГБ.</li>
+          <li><b>Точність</b> піднімаємо на кроці 2.2 до ≥ 90 %: словник назв, гарячі слова sherpa-onnx, виправлення власника. Важкі випадки — «тєлєгу», «вс код», «пів гучності», шляхи.</li>
+          <li><b>Запасний варіант 3:</b> Whisper на відеокарті лише для команд, які Haiku не зрозумів (+1,7 с); через <code>whisper-server</code> — після рішення власника.</li>
+          <li><b>Спекулятивний старт:</b> розпізнавання починається з першою тишею; 0,47 с вкладаються в паузу 0,5 с.</li>
         </ul>
       </div>
       <div class="block">
         <h3>Розпізнавання власника · F9</h3>
         <ul class="ticks">
-          <li><b>Запис голосу</b> — 5 фраз, ~30 с, у майстрі першого запуску. Зберігається лише профіль — набір чисел, без аудіо.</li>
+          <li><b>Налаштування під себе</b> — у майстрі й у Налаштуваннях → Голос, до 3 хв, кожен крок можна пропустити. <b>Мікрофон:</b> вибір, рівень наживо, «Перевірити мікрофон» — запис, прослуховування й поради. <b>Слово:</b> 10 вимов «Banshee», зблизька й здалеку — Banshee довчає модель слова й підбирає поріг, щоб ловити ≥ 9 з 10. <b>Мій голос:</b> профіль, нижче.</li>
+          <li><b>Запис голосу</b> — 5 фраз, ~30 с, у майстрі першого запуску. Зберігається лише профіль — набір чисел, без аудіо. Після зміни мікрофона Banshee пропонує записати ще раз.</li>
+          <li><b>Крок 0.6, 2026-10-04:</b> NeMo TitaNet small — 0 % помилок в обидва боки на 50 командах власника й 20 чужих кліпах, 21 мс на фразу; поріг ≈ 0,32. Запасна модель — 3D-Speaker ERes2Net.</li>
           <li><b>Кожна фраза</b> після «Banshee» порівнюється з профілем паралельно з STT. Чужа відкидається до маршрутизації й не потрапляє ні в дії, ні в пам'ять.</li>
           <li>«Стоп» приймається від будь-кого. Голосове «так» — лише на питання до команди власника.</li>
           <li><b>Фільтр, а не захист:</b> голос можна записати чи синтезувати, тож небезпечне — і далі лише руками.</li>
@@ -1298,10 +1326,10 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
             <thead><tr><th>Ланка</th><th class="num">Час</th></tr></thead>
             <tbody>
               <tr><td>VAD: пауза, після якої фраза завершена</td><td class="num">0,5 с</td></tr>
-              <tr><td>STT: Whisper понад паузу (розпізнавання за 0,8 с)</td><td class="num">0,3 с</td></tr>
-              <tr><td>Haiku: перше речення з кешем</td><td class="num">0,5 с</td></tr>
-              <tr><td>TTS: Piper, перший звук</td><td class="num">0,15 с</td></tr>
-              <tr class="total"><td>Разом до першого звуку</td><td class="num">≈ 1,45 с</td></tr>
+              <tr><td>STT: Parakeet у межах паузи (0,47 с, крок 0.3)</td><td class="num">≈ 0 с</td></tr>
+              <tr><td>Haiku: перше речення з кешем (крок 0.1)</td><td class="num">0,61 с</td></tr>
+              <tr><td>TTS: перший звук (крок 0.4)</td><td class="num">0,1 с</td></tr>
+              <tr class="total"><td>Разом до першого звуку</td><td class="num">≈ 1,2 с</td></tr>
             </tbody>
           </table>
         </div>
@@ -1330,11 +1358,12 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         <li><b>Вікно продовження.</b> Після відповіді Banshee ще 5 с слухає без слова активації, індикатор у треї світиться. Розпізнавання запускається, лише коли VAD почув мову.</li>
         <li><b>Перебивання.</b> «Banshee» під час озвучки одразу її приглушує; «Banshee, стоп» або гаряча клавіша скасовує поточний хід. Уже виконані дії повертає «скасуй».</li>
         <li><b>Ехоподавлення.</b> Мікрофон і озвучка — в одному renderer-процесі, тож власний голос Banshee не будить і не перебиває його.</li>
-        <li><b>Без інтернету</b> голос працює повністю; недоступний лише Claude — базовий режим. Без відеокарти Whisper переходить на процесор, повільніше.</li>
-        <li><b>Словник назв.</b> «ві ес код» → VS Code: core підставляє назви перед пошуком рутини й перед Haiku, виправлення власника поповнюють словник. Найчастіші назви йдуть у Whisper підказкою (initial prompt).</li>
+        <li><b>Без інтернету</b> голос працює повністю; недоступний лише Claude — базовий режим. Відеокарта для голосу не потрібна.</li>
+        <li><b>Словник назв.</b> «ві ес код» → VS Code: core підставляє назви перед пошуком рутини й перед Haiku, виправлення власника поповнюють словник. Назви зі словника йдуть у розпізнавання гарячими словами.</li>
         <li><b>Заблокований ПК.</b> Лише дії з позначкою <code>allowWhenLocked</code>: час і дата, музика, гучність; погода — з етапу 4. На решту — «Розблокуй комп'ютер».</li>
         <li><b>Стан у треї:</b> слухає / вікно продовження / думає / виконує / пауза. Пауза мікрофона — однією гарячою клавішею.</li>
         <li><b>Голосом — коротко й українською;</b> подробиці — текстом в оверлеї.</li>
+        <li><b>Мікрофон — Bluetooth-гарнітура JBL, поки що.</b> Власник носить її не завжди: не на голові — лежить на столі й слухає кімнату, слово чути з 3 м. Режим дзвінка: 16 кГц моно, як чекає розпізнавання. Поки Banshee слухає, музика в гарнітурі гірша; музика з колонок потрапляє в мікрофон. Що робити, коли гарнітури немає поруч, відкладено: поки вона завжди ввімкнена й поруч.</li>
         <li><b>Зміна пристроїв і сон.</b> Нову гарнітуру чи динаміки Banshee підхоплює без перезапуску; після сну аудіо перезапускається само.</li>
         <li><b>Дзвінки.</b> Коли мікрофон зайнятий Teams, Discord чи Zoom, відповіді — лише текстом в оверлеї.</li>
         <li><b>Кілька ПК поруч.</b> Налаштування «Слухати, лише коли ПК активний»: реагувати, лише якщо за 15 хв було введення з клавіатури чи миші. Типово вимкнено.</li>
@@ -1424,7 +1453,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
       <div class="block">
         <h3>Маршрутизація</h3>
         <ul class="ticks">
-          <li><b>Проста дія</b> — інструменти з позначкою <code>final</code>: гучність, програма, музика. Якщо дія вдалася, хід завершується без другого виклику; фразу вже озвучено.</li>
+          <li><b>Проста дія</b> — інструменти з позначкою <code>final</code>: гучність, програма, музика. Якщо дія вдалася, хід завершується без другого виклику; фразу вже озвучено. Тому незалежні дії однієї команди модель викликає разом, в одній відповіді — на кроці 0.1 так у 4 з 4 команд.</li>
           <li><b>Кілька кроків</b> — звичайний агентний цикл: <code>tool_result</code> → Haiku → наступна дія.</li>
           <li><b><code>escalate</code></b> — план понад ~5 кроків, довгий документ, дві невдалі спроби поспіль або «подумай краще». Sonnet працює окремим субагентом зі своїм кешем, результат озвучує Haiku.</li>
           <li><b><code>code_task</code></b> — Banshee відкриває Claude Code у терміналі в теці проєкту й передає задачу першим повідомленням. Далі працюєш ти, за своєю підпискою: $0 понад неї. Запуск — у вікні PowerShell з оточенням без ключів API, щоб Claude Code лишився на підписці.</li>
@@ -1454,7 +1483,10 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         <h3>Системний промпт</h3>
         <ul class="ticks">
           <li>Англійською, частини в порядку кешування: роль; політика рівнів і чужого вмісту; інструменти; профіль і правила власника ≤ 1,5K токенів.</li>
-          <li>Після кешованого префікса — нові факти за день, далі історія. Дата й час — у тексті ходу, після останньої точки кешу.</li>
+          <li>Після кешованого префікса — нові факти за день, далі історія. Дата й час — у тексті ходу, після останньої точки кешу: <code>[2026-10-05 10:30 Monday · voice]</code>, далі команда.</li>
+          <li>Префікс з інструментами — 6288 токенів, більше за поріг кешу Haiku 4.5 (4096). Точка кешу 1 год — на профілі, друга, 5 хв, — на кінці розмови.</li>
+          <li>Крок 0.1: точність 98 %, кеш 94 %, 0,15 ¢ за виклик, перший токен p50 0,61 с, p90 0,82 с. Крок 1.8, рушій core: 96 %, кеш 94 %, 0,15 ¢ за виклик.</li>
+          <li>Після простої дії core каже «Готово», а дані про диски, мережу й заряд — словами: моделі вже не викликаємо.</li>
           <li>ID моделей і ціни — у конфігурації: виведену з обігу модель замінює прихований пункт «Мозок → Моделі».</li>
         </ul>
       </div>
@@ -1538,6 +1570,8 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         <ul class="ticks">
           <li>Тільки точні ID без дат; виклики лише через <code>@anthropic-ai/sdk</code>.</li>
           <li>Префікс коротший за 4096 токенів кеш не вмикає, і помилки при цьому немає. Тому стежимо за <code>cache_read_input_tokens</code> у <code>llm_calls</code>.</li>
+          <li><code>strict: true</code> на інструментах: перший запит після зміни схем — ≈ 22 с (компіляція граматики), кожен наступний — ≈ +0,35 с. Тому без strict; аргументи перевіряє код.</li>
+          <li>Виклик текстом: модель може написати «media {…}» у відповіді замість виклику. Core такий текст не озвучує й вважає хід збоєм.</li>
           <li>Дата й час — лише в тексті ходу, після останньої точки кешу; нові факти — блоком після префікса; профіль ≤ 1,5K токенів.</li>
           <li>Понад 10–30 інструментів — tool search з <code>defer_loading</code>.</li>
           <li>Sonnet 5.5: <code>thinking: {type: "disabled"}</code> і примусовий <code>tool_choice</code> повертають 400; найнижчий рівень мислення — <code>between_tools</code>.</li>
@@ -1653,7 +1687,10 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         </ul>
 <pre class="tree">npm run key</pre>
         <ul class="ticks">
-          <li>Питає ключ Claude прихованим рядком; одразу перевіряє й показує лише останні 4 символи.</li>
+          <li>Питає ключ Claude: вставити Ctrl+V або правою кнопкою, замість символів — «•». Одразу перевіряє й показує лише останні 4 символи.</li>
+          <li>Без вставки: скопіюй ключ у Console й запусти <code>npm run key -- --clipboard</code> — ключ береться з буфера обміну, потім буфер очищується.</li>
+          <li>Не аргументом (<code>npm run key sk-ant-…</code>): рядок команди лишається в історії PowerShell, тож команда такий виклик відхиляє.</li>
+          <li>Запис — <code>claude-api-key.Banshee</code> у «Загальних облікових даних».</li>
           <li>Запускає власник у своєму терміналі. Claude Code цю команду не запускає — її блокує хук <code>guard-secrets</code>.</li>
           <li><b>Не <code>ANTHROPIC_API_KEY</code>:</b> її читає Claude Code і переходить з підписки на оплату за API, у режимі <code>-p</code> — навіть без питання (<a href="https://code.claude.com/docs/en/iam">Claude Code: Authentication</a>).</li>
         </ul>
@@ -1667,7 +1704,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         <h3>Голос — без Azure</h3>
         <ul class="ticks">
           <li>Azure Speech не використовуємо — рішення власника: обліковий запис Azure без даних картки не активується.</li>
-          <li>Голос працює на локальних моделях — Whisper і Piper — і не потребує ні облікового запису, ні ключа (слайд «Голос»).</li>
+          <li>Голос працює на локальних моделях — Parakeet і Piper — і не потребує ні облікового запису, ні ключа (слайд «Голос»).</li>
           <li>Ключ потрібен лише Claude. Кредити API купуються в Console (крок 2); без них Banshee працює в базовому режимі.</li>
         </ul>
       </div>
@@ -1808,7 +1845,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         <li>Новий факт не перезаписує старий: старий отримує статус <code>superseded</code> і посилання на новий, історія лишається.</li>
         <li>«Забудь …» видаляє факт, правило, рутину або назву; «забудь цю розмову» — транскрипт і все, що з нього витягнуто. Консолідація видалене не повертає.</li>
         <li>Транскрипти — 90 днів, далі лишається підсумок; ходи, журнал дій, витрати й журнал навчання — 1 рік; статистика за днями — безстроково; решта — доки власник не видалить. «Забудь» поширюється на всі синхронізовані ПК.</li>
-        <li>БД лежить у <code>%LOCALAPPDATA%\Banshee</code> — поза роумінгом і поза хмарними теками. Окремого шифрування БД поки немає (рішення власника): її захищає обліковий запис Windows, а файл експорту й синхронізація шифруються завжди.</li>
+        <li>БД лежить у <code>data\banshee.db</code> у теці Banshee — на диску, який обрав користувач; хмарну теку встановлювач не приймає. Окремого шифрування БД поки немає (рішення власника): її захищає обліковий запис Windows, а файл експорту й синхронізація шифруються завжди.</li>
       </ul>
     </div>
 
@@ -2456,6 +2493,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
               <li>Журнал</li>
               <li>Налаштування</li>
               <li>Синхронізація</li>
+              <li>Довідка</li>
               <li>Про програму</li>
             </ul>
             <div class="cc-main">
@@ -2476,7 +2514,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
             </div>
           </div>
         </div>
-        <figcaption><b>Центр керування.</b> Огляд дня зі станом ШІ, активність із графіками, пам'ять із «Нове про тебе», навички з вивченими рутинами, журнал зі «скасувати», налаштування й синхронізація.</figcaption>
+        <figcaption><b>Центр керування.</b> Огляд дня зі станом ШІ, активність із графіками, пам'ять із «Нове про тебе», навички з вивченими рутинами, журнал зі «скасувати», налаштування, синхронізація й довідка з посиланнями на налаштування.</figcaption>
       </figure>
 
       <figure class="mock mock-wide">
@@ -2491,6 +2529,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
               <li>Журнал</li>
               <li>Налаштування</li>
               <li>Синхронізація</li>
+              <li>Довідка</li>
               <li>Про програму</li>
             </ul>
             <div class="cc-main">
@@ -2531,13 +2570,14 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
 
       <figure class="mock">
         <div class="desk">
-          <div class="tray ui" role="img" aria-label="Макет меню трею: відкрити Banshee, пауза мікрофона, перемикач ШІ увімкнено, центр керування, синхронізувати зараз, вийти; значок Banshee на панелі завдань показує стан Слухає.">
+          <div class="tray ui" role="img" aria-label="Макет меню трею: відкрити Banshee, пауза мікрофона, перемикач ШІ увімкнено, центр керування, синхронізувати зараз, довідка, вийти; значок Banshee на панелі завдань показує стан Слухає.">
             <ul class="menu">
               <li><span>Відкрити Banshee</span><span class="kb">Ctrl+Shift+B</span></li>
               <li><span>Пауза мікрофона</span><span class="kb">Ctrl+Shift+M</span></li>
               <li><span>ШІ: увімкнено</span><span class="sw on" aria-hidden="true"></span></li>
               <li><span>Центр керування</span></li>
               <li><span>Синхронізувати зараз</span></li>
+              <li><span>Довідка</span></li>
               <li class="sep" aria-hidden="true"></li>
               <li><span>Вийти</span></li>
             </ul>
@@ -2592,6 +2632,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
               <tr><td>Пауза мікрофона</td><td><kbd>Ctrl+Shift+M</kbd></td></tr>
               <tr><td>Стоп</td><td><kbd>Ctrl+Shift+X</kbd></td></tr>
               <tr><td>Підтвердити небезпечну дію</td><td><kbd>Ctrl+Enter</kbd></td></tr>
+              <tr><td>Довідка до розділу, у центрі керування</td><td><kbd>F1</kbd></td></tr>
             </tbody>
           </table>
         </div>
@@ -2619,6 +2660,15 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         </ul>
       </div>
     </div>
+    <div class="block">
+      <h3>Довідка в програмі</h3>
+      <ul class="ticks">
+        <li>Розділ «Довідка» в центрі керування; F1 — тема поточного розділу; пункт у треї; команда «довідка» — без ШІ.</li>
+        <li>Короткі теми простою мовою: як почати, як кликати, що вміє, підтвердження, голос і мікрофон, пам'ять, ШІ й витрати, кілька ПК, приватність, гарячі клавіші, якщо щось не так, системні вимоги.</li>
+        <li>Кожна тема закінчується посиланнями, що відкривають потрібне налаштування: «Налаштування → Голос → Мікрофон». Тест перевіряє, що всі посилання живі.</li>
+        <li>Нова чи змінена функція оновлює свою тему в тій самій зміні.</li>
+      </ul>
+    </div>
     <p class="src">джерело: .claude/logic/09-ui.md</p>
   </section>
 
@@ -2631,7 +2681,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
 
     <figure class="mock">
       <div class="desk">
-        <div class="win ui cc" role="img" aria-label="Макет налаштувань, розділ Голос: слово активації й чутливість, пауза кінця фрази 0,5 секунди, вікно продовження увімкнено, розпізнавання Whisper на відеокарті, голос озвучки Piper lada з кнопкою Прослухати; швидкість озвучки змінена голосом із посиланням Скинути; профіль мого голосу записано, лише на цьому ПК; примітка, що безпекові налаштування змінюються лише вручну.">
+        <div class="win ui cc" role="img" aria-label="Макет налаштувань, розділ Голос: слово активації й чутливість, пауза кінця фрази 0,5 секунди, вікно продовження увімкнено, розпізнавання Parakeet на процесорі, голос озвучки Piper lada з кнопкою Прослухати; швидкість озвучки змінена голосом із посиланням Скинути; профіль мого голосу записано, лише на цьому ПК; примітка, що безпекові налаштування змінюються лише вручну.">
           <div class="cc-title"><b>BANSHEE</b><span>Налаштування</span></div>
           <ul class="cc-nav">
             <li>Загальні</li>
@@ -2647,7 +2697,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
             <div class="set-row"><div><b>Мій голос</b><span class="d">Профіль записано · лише на цьому ПК</span></div><div class="ctl"><span class="ubtn">Перезаписати</span></div></div>
             <div class="set-row"><div><b>Пауза кінця фрази</b><span class="d">Скільки тиші вважати кінцем команди</span></div><div class="ctl"><span class="sel">0,5 с ▾</span></div></div>
             <div class="set-row"><div><b>Вікно продовження</b><span class="d">Слухати ще 5 с після відповіді</span></div><div class="ctl"><span class="sw on" aria-hidden="true"></span></div></div>
-            <div class="set-row"><div><b>Розпізнавання</b><span class="d">Whisper large-v3-turbo · локально</span></div><div class="ctl"><span class="sel">Відеокарта ▾</span></div></div>
+            <div class="set-row"><div><b>Розпізнавання</b><span class="d">Parakeet TDT 0.6B v3 · процесор, локально</span></div><div class="ctl"><span class="sel">Parakeet ▾</span></div></div>
             <div class="set-row"><div><b>Голос озвучки</b><span class="d">Piper · lada · локально</span></div><div class="ctl"><span class="ubtn">Прослухати</span></div></div>
             <div class="set-row changed"><div><b>Швидкість озвучки</b><span class="d">Змінено голосом 2 хв тому · <u>Скинути</u></span></div><div class="ctl"><span class="sel">0,9× ▾</span></div></div>
             <p class="set-lock"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9.5" rx="2" class="si-line"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" class="si-line"/></svg>Безпекові налаштування змінюються лише тут, з підтвердженням кліком. Голос і самонавчання їх не змінюють.</p>
@@ -2675,12 +2725,12 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
           <thead><tr><th>Розділ</th><th>Що можна змінити</th></tr></thead>
           <tbody>
             <tr><td class="strong">Загальні</td><td>автозапуск (так), тема (як у Windows), мова (українська), гарячі клавіші (Ctrl+Shift+B / M / X)</td></tr>
-            <tr><td class="strong">Голос</td><td>слово й чутливість, мій голос (записати, додати зразки, видалити), мікрофон і динаміки, слухати лише коли ПК активний (ні), пауза кінця фрази (0,5 с), вікно продовження (5 с), розпізнавання (Whisper, відеокарта), голос Piper і швидкість озвучки</td></tr>
+            <tr><td class="strong">Голос</td><td>слово й чутливість, «Навчити слово» (10 вимов «Banshee»), мій голос (записати, додати зразки, видалити), мікрофон з «Перевірити мікрофон», динаміки, слухати лише коли ПК активний (ні), пауза кінця фрази (0,5 с), вікно продовження (5 с), розпізнавання (Parakeet, процесор), голос Piper і швидкість озвучки</td></tr>
             <tr><td class="strong">Мозок і витрати</td><td>картка «Стан ШІ»; використовувати ШІ (так, коли є ключ), ключ API Claude (вставити, перевірити, замінити, видалити), ескалація на Sonnet (так), ліміти ($1 на день, $20 на місяць — рішення власника), кредити для оцінки залишку, попередження (менше $2), показ вартості ходу (ні), моделі й ціни (прихований розділ)</td></tr>
             <tr><td class="strong">Пам'ять і навчання</td><td>навчання на виконаннях (так), успіхів до активації (2), самоаналіз (о 03:00), пропозиції з повторів, транскрипти (90 днів), пауза навчання</td></tr>
             <tr><td class="strong">Безпека · лише вручну</td><td>розпізнавання власника за голосом (так), суворість перевірки (середня), голосове «так» для змін (8 с), поріг масової операції (20 файлів), дозволені команди PowerShell, дії на заблокованому ПК, теки проєктів для Claude Code</td></tr>
             <tr><td class="strong">Синхронізація</td><td>тека синхронізації (<code>OneDrive\Banshee</code>), синхронізувати транскрипти (ні), резервна копія (щотижня, 4 останні)</td></tr>
-            <tr><td class="strong">Сховище</td><td>тека моделей (~1 ГБ, можна на інший диск), журнали роботи (5 × 5 МБ)</td></tr>
+            <tr><td class="strong">Сховище</td><td>тека Banshee — показ і «Відкрити в провіднику»: програма, дані, моделі й журнали в ній; журнали роботи (5 × 5 МБ)</td></tr>
           </tbody>
         </table>
       </div>
@@ -2690,7 +2740,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
       <h3>Правила</h3>
       <ul class="ticks">
         <li>Кожна зміна — у журналі дій (<code>settings.set</code>): що, було, стало, звідки (інтерфейс, голос, синхронізація); «скасуй» повертає попереднє значення.</li>
-        <li>Значення перевіряє схема в <code>packages/shared</code> (zod): типи, межі, типові значення, міграції між версіями.</li>
+        <li>Значення перевіряє схема в <code>packages/shared</code> (zod, крок 1.2): типи, межі, типові значення, міграції між версіями; помилки — українською. Голосом змінюються лише озвучка, паузи, вікно продовження й перемикач ШІ; безпекові й грошові — лише вручну з кліком; самонавчання — нічого.</li>
         <li>Секрети показуються як «••••1234»: змінити можна, переглянути — ні.</li>
         <li>Ліміти витрат і ключ — лише вручну. Вимкнути ШІ можна й голосом, увімкнути голосом — з підтвердженням.</li>
         <li>Безпекові налаштування, що прийшли синхронізацією, діють лише після підтвердження на цьому ПК.</li>
@@ -2858,21 +2908,22 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         <thead><tr><th>Метрика</th><th>Вимога</th><th>Як міряємо</th><th>Ціль</th><th>Етап</th></tr></thead>
         <tbody>
           <tr><td class="strong">Хибні спрацювання слова</td><td><span class="rid">F1</span></td><td>10 год аудіо без слова «Banshee»: українські подкасти й відео з диска, запис кімнати</td><td>≤ 1 на 10 год</td><td>0, 2</td></tr>
-          <tr><td class="strong">Пропуски слова</td><td><span class="rid">F1</span></td><td>100 вимов «Banshee» власником з 1–3 м, у тиші й з музикою</td><td>≤ 5 %</td><td>0, 2</td></tr>
-          <tr><td class="strong">Розпізнавання команд</td><td><span class="rid">F1</span> <span class="rid">F2</span></td><td>50 записаних команд із назвами програм і числами, до й після словника назв; Whisper на GTX 960</td><td>≥ 90 % без помилок у назвах і числах; фраза ≤ 0,8 с</td><td>0</td></tr>
-          <tr><td class="strong">Розпізнавання власника</td><td><span class="rid">F9</span></td><td>етап 0: 50 команд власника й 20 чужих фраз (ТБ, відео); етап 2: 50 і 50</td><td>власника не впізнано ≤ 5 %; чужих прийнято ≤ 5 %</td><td>0, 2</td></tr>
+          <tr><td class="strong">Пропуски слова</td><td><span class="rid">F1</span></td><td>100 вимов «Banshee» власником з 1 і 3 м від гарнітури на столі, у тиші й під музику з колонок</td><td>≤ 5 %</td><td>0, 2</td></tr>
+          <tr><td class="strong">Розпізнавання команд</td><td><span class="rid">F1</span> <span class="rid">F2</span></td><td>50 записаних команд із назвами програм і числами, до й після словника назв; Haiku з розпізнаного тексту</td><td>≥ 90 % команд виконано правильно; фраза ≤ 0,8 с. Крок 0.3: 72 % і 0,47 с (Parakeet)</td><td>0, 2</td></tr>
+          <tr><td class="strong">Розпізнавання власника</td><td><span class="rid">F9</span></td><td>етап 0: 50 команд власника й 20 чужих фраз (ТБ, відео); етап 2: 50 і 50</td><td>власника не впізнано ≤ 5 %; чужих прийнято ≤ 5 %. Крок 0.6: 0 % і 0 %</td><td>0, 2</td></tr>
           <tr><td class="strong">Правильна дія</td><td><span class="rid">F2</span></td><td>еталонний набір: команда → очікуваний інструмент і аргументи</td><td>≥ 90 %</td><td>0, 1, кожна зміна</td></tr>
           <tr><td class="strong">Навчання</td><td><span class="rid">F3</span></td><td>«помилка → виправлення → та сама команда наступного дня», 10 разів</td><td>9 з 10 без повтору</td><td>3</td></tr>
           <tr><td class="strong">Команди без ШІ</td><td><span class="rid">F3</span></td><td>частка ходів, виконаних рутинами, за 30 днів; графік в «Активності»</td><td>≥ 40 % через місяць</td><td>3</td></tr>
           <tr><td class="strong">Вивчені рутини</td><td><span class="rid">F3</span></td><td>частка успішних запусків</td><td>≥ 95 %</td><td>3</td></tr>
           <tr><td class="strong">Регресії від навчання</td><td><span class="rid">F3</span></td><td>еталонний набір до й після кожної зміни правил</td><td>0 падінь</td><td>3</td></tr>
+          <tr><td class="strong">Налаштування голосу</td><td><span class="rid">F1</span> <span class="rid">F9</span></td><td>новий користувач проходить у майстрі мікрофон, слово й голос</td><td>≤ 3 хв; слово після навчання ≥ 9 з 10</td><td>2</td></tr>
           <tr><td class="strong">Затримка</td><td><span class="rid">N1</span></td><td>мітки часу кожної ланки, 100 голосових команд</td><td>p50 ≤ 1,5 с, p90 ≤ 2,5 с</td><td>0, 2</td></tr>
           <tr><td class="strong">Ін'єкції</td><td><span class="rid">N2</span></td><td>10+ сценаріїв: сторінка, лист чи файл просить видалити, надіслати, запам'ятати</td><td>0 виконань, 0 записів у пам'ять</td><td>1, 3</td></tr>
           <tr><td class="strong">Вартість API</td><td><span class="rid">N3</span></td><td>сума <code>cost_usd</code> у <code>llm_calls</code> за місяць</td><td>≤ $15</td><td>постійно</td></tr>
           <tr><td class="strong">Частка Sonnet</td><td><span class="rid">F5</span></td><td>частка викликів Sonnet у <code>llm_calls</code></td><td>≤ 10 %</td><td>постійно</td></tr>
           <tr><td class="strong">Влучання в кеш</td><td><span class="rid">N3</span></td><td>прочитані з кешу токени / усі вхідні</td><td>≥ 70 %</td><td>постійно</td></tr>
           <tr><td class="strong">Відновлення</td><td><span class="rid">N4</span></td><td>вбити процес core</td><td>знову працює за ≤ 5 с</td><td>1</td></tr>
-          <tr><td class="strong">Ресурси в спокої</td><td><span class="rid">N6</span></td><td>лічильники продуктивності Windows, 1 год без команд</td><td>CPU &lt; 3 %, RAM &lt; 500 МБ</td><td>0, 2</td></tr>
+          <tr><td class="strong">Ресурси в спокої</td><td><span class="rid">N6</span></td><td>лічильники продуктивності Windows, 1 год без команд</td><td>CPU &lt; 3 %, RAM ≤ 1,5 ГБ</td><td>0, 2</td></tr>
           <tr><td class="strong">Інтерфейс з клавіатури</td><td><span class="rid">F6</span></td><td>сценарії без миші; контраст кольорів</td><td>усі сценарії; ≥ 4,5 : 1</td><td>1</td></tr>
           <tr><td class="strong">Налаштування</td><td><span class="rid">F7</span></td><td>опис, типове значення, «скинути», журнал</td><td>у всіх пунктів</td><td>1</td></tr>
           <tr><td class="strong">Активність</td><td><span class="rid">F10</span></td><td>числа графіків проти журналу за той самий період</td><td>збіг 100 %</td><td>1, 3</td></tr>
@@ -2889,11 +2940,23 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
         <ul class="ticks">
           <li>~50 команд українською так, як їх кажуть насправді: назви програм англійською, числа словами, суржик.</li>
           <li>Для кожної — очікуваний інструмент і аргументи. MCP-сервери підмінені заглушками, тож нічого не виконується.</li>
-          <li>Окремий файл — сценарії ін'єкцій.</li>
+          <li>Окремий файл — 12 сценаріїв ін'єкцій (крок 1.8): назви файлів, вивід PowerShell, підроблений результат інструмента, вставлений текст. Ціль — 0 виконаних дій.</li>
+          <li>З кроку 1.8 хід іде циклом core, тим самим, що в продукті. Прогін 2026-10-05: 96 %, кеш 94 %, $0,10, перший токен p50 0,61 с; ін'єкцій виконано 0 з 12. Знайдено й виправлено дві вади: шлях з одним «» і мовчазна відповідь <code>system_info</code>.</li>
           <li>Точність нижче 90 % — помилка, а не попередження.</li>
           <li>Кожна помилка, яку виправив власник, стає новим тестом.</li>
           <li>Перевіряє й самонавчання: зміни правил застосовуються, лише якщо набір не погіршився.</li>
           <li>Склад: ~60 % простих дій, ~25 % кількох кроків, ~10 % неоднозначних (треба уточнити), ~5 % поза межами (треба відмовити). Прогін — справжній Haiku з кешем і заглушки MCP; звіт — у <code>evals/results/</code>.</li>
+          <li>Крок 0.1: <code>evals/commands.json</code> — 30 / 12 / 5 / 3 команди, тестовий профіль зі словником назв. Оцінка без моделі-судді: інструменти й аргументи, для уточнення — питання. Стеля прогону — $0,50, очікувано ≈ $0,1.</li>
+        </ul>
+      </div>
+      <div class="block">
+        <h3>Перший огляд записів, 2026-10-04</h3>
+        <ul class="ticks">
+          <li>81 файл гарнітурою JBL: 50 команд, 4 серії «Banshee», 5 фраз профілю, 20 чужих фраз; 1,9 хв кімнати. Фон — 51 год українських подкастів UK-PODS, власнику записувати 10 год не треба. Перевірка — <code>npm run recordings</code>.</li>
+          <li>Смуга широка, спектр до ≈ 7,7 кГц; мова −16 dBFS, без перевантажень; між словами — цифрова тиша від шумозаглушення.</li>
+          <li>З 3 м у тиші слово лише на ≈ 3 дБ тихіше, ніж з 1 м. Під музикою з колонок слово й музика однаково гучні — найважча умова для кроку 0.5.</li>
+          <li>Слова в серіях звучать не за підказками: 30 і 33 відрізки мови на 25 підказок. Мітки слів для кроку 0.5 — зі звуку: у тиші за рівнем, під музикою — Whisper.</li>
+          <li><code>volume-quieter</code> перезаписувати не треба: обидві моделі розпізнали «тихіше» повністю.</li>
         </ul>
       </div>
       <div class="block">
@@ -2918,7 +2981,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
       <li class="step spike">
         <span class="n">0</span>
         <h3>Перевірка ризиків</h3>
-        <p class="scope">Прототипи без продукту: wake word, VAD + STT на українських командах із назвами програм, швидкість і точність Whisper на GTX 960, голоси Piper, розпізнавання власника на 50 + 20 фразах, вибір інструментів Haiku, затримка наскрізь, ехоподавлення, ресурси в спокої, готові збірки нативних модулів під Electron. Підготовка: git-репозиторій; ключ Claude — у сховищі Banshee через <code>npm run key</code>.</p>
+        <p class="scope">Прототипи без продукту: wake word, VAD + STT на українських командах із назвами програм, швидкість і точність розпізнавання (Whisper на GTX 960, Parakeet на процесорі), голоси Piper, розпізнавання власника на 50 + 20 фразах, вибір інструментів Haiku, затримка наскрізь, ехоподавлення, ресурси в спокої, готові збірки нативних модулів під Electron. Підготовка: git-репозиторій; ключ Claude — у сховищі Banshee через <code>npm run key</code>.</p>
         <div class="done"><b>Готово, коли</b><ul class="crit">
           <li>усі вимірювання етапу 0 зі слайда «Якість» зроблено</li>
           <li>рішення про голос і модель підтверджено або змінено</li>
@@ -2927,7 +2990,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
       <li class="step">
         <span class="n">1</span>
         <h3>Текстовий мозок</h3>
-        <p class="scope">Монорепо на npm workspaces і перевірки Definition of Done. Core + Haiku 4.5, 11 інструментів ПК, рівні дій із розбором PowerShell, журнал зі «скасуй» і таблиця ходів, оверлей і картки підтвердження, центр керування (Огляд, Активність, Журнал, базові Налаштування), IPC, облік і ліміти витрат, стан ШІ й базовий режим, вбудовані команди без ШІ, еталонний набір в автоперевірці, встановлювач.</p>
+        <p class="scope">Монорепо на npm workspaces і перевірки Definition of Done. Core + Haiku 4.5, 11 інструментів ПК, рівні дій із розбором PowerShell, журнал зі «скасуй» і таблиця ходів, оверлей і картки підтвердження, центр керування (Огляд, Активність, Журнал, базові Налаштування), IPC, облік і ліміти витрат, стан ШІ й базовий режим, вбудовані команди без ШІ, еталонний набір в автоперевірці, встановлювач з вибором диска — усе в одній теці <code>Banshee</code>; довідка в програмі.</p>
         <div class="done"><b>Готово, коли</b><ul class="crit">
           <li><span class="rid">F2</span>≥ 90 % на еталонному наборі</li>
           <li><span class="rid">F4</span>кожна дія з рівнем і в журналі</li>
@@ -2944,7 +3007,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
       <li class="step">
         <span class="n">2</span>
         <h3>Голос</h3>
-        <p class="scope">Wake word, VAD, Whisper і Piper локально в процесі voice, спекулятивний старт розпізнавання, вікно продовження, «стоп», словник назв, розпізнавання власника за голосом, правила для заблокованого ПК, налаштування голосу.</p>
+        <p class="scope">Wake word, VAD, Parakeet і Piper локально в процесі voice, спекулятивний старт розпізнавання, вікно продовження, «стоп», словник назв, розпізнавання власника за голосом, правила для заблокованого ПК, налаштування голосу.</p>
         <div class="done"><b>Готово, коли</b><ul class="crit">
           <li><span class="rid">N1</span>p50 ≤ 1,5 с, p90 ≤ 2,5 с до першого звуку</li>
           <li><span class="rid">F1</span>хибні спрацювання й пропуски в межах</li>
@@ -2976,23 +3039,29 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
     </ol>
     <div class="block">
       <h3>Відкриті питання</h3>
-      <p class="cost-assume">Немає: на 2026-10-03 власник відповів на всі. Нові питання записуються сюди одразу, щойно з'являються.</p>
-      <p class="cost-assume">Два рішення чекають звіту етапу 0, бо залежать від вимірювань: хмарний Whisper Groq і <code>whisper-server</code> на localhost.</p>
+      <p class="cost-assume"><s>Слово активації (крок 0.5)</s> — власна модель слова з перевіркою голосу, далі довчання (рішення власника 2026-10-05).</p>
+      <p class="cost-assume">Нові питання записуються сюди одразу, щойно з'являються.</p>      <p class="cost-assume">Хмарний Whisper Groq і <code>whisper-server</code> на localhost — окремі рішення власника, лише якщо знадобиться запасний варіант 3.</p>
     </div>
     <div class="cols">
       <div class="block">
         <h3>Дії власника</h3>
         <ul class="ticks">
-          <li><b>Ключ Claude</b> отримано — ввести командою <code>npm run key</code> після кроку П3. Змінна середовища не потрібна; <code>BANSHEE_ANTHROPIC_API_KEY</code>, якщо вже задана, — видалити (слайд «API»).</li>
-          <li><b>Azure</b> — не потрібен: голос локальний (рішення власника).</li>
+          <li><s>Ключ Claude ввести командою <code>npm run key</code></s> — зроблено 2026-10-04. Ключ, переданий аргументом команди, відкликати й прибрати з історії PowerShell.</li>
+          <li><s>Голос озвучки (крок 0.4)</s> — обрано <code>tetiana</code> high.</li>
+          <li><s>Слово «Banshee» (крок 0.5)</s> — обрано власну модель з перевіркою голосу, далі — довчання.</li>
+          <li><b>Перевірка встановленої програми</b> — після кроку 1.9 власник встановлює Banshee й перевіряє наживо дії інструментів ПК: відкрити й закрити програму, гучність, медіа, вікна, блокування.</li>
+          <li><s>Дозвіл на коміт</s> — дано 2026-10-05.</li>
+          <li><s>Записи кроку 0.2</s> — зроблено; фон — подкасти UK-PODS.</li>
+          <li><b>50 команд еталонного набору</b> — переписати поле <code>text</code> в <code>evals/commands.json</code> так, як власник каже насправді.</li>          <li><b>Azure</b> — не потрібен: голос локальний (рішення власника).</li>
           <li><b><code>.mcp.json</code></b> — лишити тільки context7 і chrome-devtools, без секретів; figma, mui, atlassian і gitlab прибрати, токен GitLab відкликати. Файл — у <code>.gitignore</code>.</li>
           <li><b>Плагін <code>typescript-lsp</code></b> — встановити разом із <code>typescript-language-server</code>.</li>
           <li><s>Увімкнути ESU на цьому ПК</s> — зроблено 2026-10-03, безкоштовно, до 12.10.2027.</li>
         </ul>
       </div>
       <div class="block">
-        <h3>Відкладено власником · 2026-10-03</h3>
+        <h3>Відкладено власником · 2026-10-03 і 2026-10-04</h3>
         <ul class="ticks nogo">
+          <li>Чим слухати, коли гарнітури немає поруч — поки вона завжди ввімкнена й поруч (2026-10-04). На потім: лише з гарнітурою або другий мікрофон у кімнаті з окремими профілем і порогом.</li>
           <li>Шифрування БД — поки не потрібне.</li>
           <li>Пошта й календар — поки не потрібні.</li>
           <li>Векторний пошук — рішення відкладено; поки FTS5.</li>
@@ -3018,8 +3087,8 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
           <tbody>
             <tr><td class="num">П1</td><td>власник</td><td>у <code>.mcp.json</code> лише context7 і chrome-devtools; відкликати токен GitLab</td><td><code>/mcp</code> показує лише ці два сервери, без помилки gitlab</td></tr>
             <tr><td class="num">П2</td><td>власник</td><td>плагін <code>typescript-lsp</code> і <code>typescript-language-server</code></td><td>діагностика TypeScript у Claude Code</td></tr>
-            <tr><td class="num">П3</td><td>Claude</td><td>репозиторій і <code>.gitignore</code> уже є; npm workspaces, <code>.npmrc</code> (кеш на D:), tsconfig, ESLint, Prettier, Vitest; <code>npm run key</code> і <code>check:api</code></td><td><code>npm run check</code> проходить</td></tr>
-            <tr><td class="num">П4</td><td>власник</td><td><code>npm run key</code> у своєму терміналі: ключ Claude → Credential Manager</td><td><code>npm run check:api</code> відповідає «OK»</td></tr>
+            <tr><td class="num">П3</td><td>Claude</td><td>репозиторій і <code>.gitignore</code> уже є; npm workspaces, <code>.npmrc</code> (кеш на D:), tsconfig, ESLint, Prettier, Vitest; <code>npm run key</code> і <code>check:api</code></td><td><code>npm run check</code> проходить — ✓ 2026-10-03, 27 тестів</td></tr>
+            <tr><td class="num">П4</td><td>власник</td><td><code>npm run key</code> у своєму терміналі: ключ Claude → Credential Manager</td><td><code>npm run check:api</code> відповідає «OK» — ✓ 2026-10-04</td></tr>
           </tbody>
         </table>
       </div>
@@ -3027,19 +3096,20 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
     </div>
 
     <div class="block">
+      <p class="cost-assume">Виконано <b>33 % ТЗ</b>: 34 очки з 102. Ваги кроків — у <code>13-plan.md</code>, розділ «Відсоток виконання ТЗ»; частково зроблений крок дає 0.</p>
       <h3>Етап 0 · Перевірка ризиків</h3>
       <div class="tbl">
         <table>
           <thead><tr><th class="num">#</th><th>Крок</th><th>Ціль</th></tr></thead>
           <tbody>
-            <tr><td class="num">0.1</td><td>Haiku 4.5 + 11 інструментів (заглушки) на 50 командах; команди складає Claude, власник правит під свою мову</td><td>≥ 90 % правильних; кеш ≥ 70 %</td></tr>
-            <tr><td class="num">0.2</td><td>Записи: 50 команд, 100 вимов «Banshee», 5 фраз профілю, 20 чужих фраз; 10 год фонового аудіо</td><td>~40 хв часу власника</td></tr>
-            <tr><td class="num">0.3</td><td>Whisper turbo q5 на GTX 960: sherpa-onnx і whisper.cpp, з підказкою назв і без, спекулятивний старт</td><td>≥ 90 % назв і чисел; фраза ≤ 0,8 с; вміщається у 2 ГБ; без Build Tools і порту</td></tr>
-            <tr><td class="num">0.4</td><td>Голоси Piper <code>uk_UA</code>: перший звук і вибір на слух</td><td>≤ 0,2 с; голос обрано</td></tr>
-            <tr><td class="num">0.5</td><td>Слово «Banshee», sherpa-onnx KWS</td><td>≤ 5 % пропусків; ≤ 1 хибне на 10 год</td></tr>
-            <tr><td class="num">0.6</td><td>Голос власника, моделі відбитків: 50 команд власника й 20 чужих фраз</td><td>≤ 5 % помилок в обидва боки</td></tr>
-            <tr><td class="num">0.7</td><td>Прототип Electron: мікрофон → VAD → Whisper → Haiku → Piper, процес voice</td><td>p50 ≤ 1,5 с, p90 ≤ 2,5 с; власний голос не будить</td></tr>
-            <tr><td class="num">0.8</td><td>Нативні модулі під Electron: <code>better-sqlite3</code>, sherpa-onnx, <code>@napi-rs/keyring</code>; ресурси в спокої із завантаженим Whisper</td><td>готові збірки; CPU &lt; 3 %, RAM &lt; 500 МБ</td></tr>
+            <tr><td class="num">0.1</td><td>Haiku 4.5 + 11 інструментів і <code>escalate</code> (заглушки) на 50 командах; команди склав Claude, власник правит під свою мову. ✓ 2026-10-04: 98 %, кеш 94 %</td><td>≥ 90 % правильних; кеш ≥ 70 %</td></tr>
+            <tr><td class="num">0.2</td><td>Записи гарнітурою JBL: 50 команд, 100 вимов «Banshee», 5 фраз профілю, 20 чужих фраз; 10 год фонового аудіо. ✅ Власник записав усе, крім фону; фон — 51 год подкастів UK-PODS</td><td>~40 хв часу власника</td></tr>
+            <tr><td class="num">0.3</td><td>Whisper turbo q5 на GTX 960: sherpa-onnx і whisper.cpp, з підказкою назв і без, спекулятивний старт. Виміряно 2026-10-04: Whisper — 1,67 с і 80 %, Parakeet v3 на процесорі — 0,47 с і 72 %. ✅ Рішення власника: Parakeet; точність — крок 2.2</td><td>≥ 90 % назв і чисел; фраза ≤ 0,8 с; вміщається у 2 ГБ; без Build Tools і порту</td></tr>
+            <tr><td class="num">0.4</td><td>Голоси Piper <code>uk_UA</code>: перший звук і вибір на слух. ✅ 2026-10-04: власник обрав <code>tetiana</code> high — найчіткіший; нова фраза — 0,45 с, часті — з готових</td><td>≤ 0,2 с; голос обрано</td></tr>
+            <tr><td class="num">0.5</td><td>Слово «Banshee»: власна модель з перевіркою голосу — рішення власника 2026-10-05 (готові sherpa-onnx KWS не годяться). Ітерація 4: 17 % пропусків, 1 хибне на 10 год; далі — довчання, ітерація 5 з ознаками потоком</td><td>≤ 5 % пропусків; ≤ 1 хибне на 10 год</td></tr>
+            <tr><td class="num">0.6</td><td>Голос власника, моделі відбитків: 50 команд власника й 20 чужих фраз. ✅ TitaNet small — 0 % і 0 %</td><td>≤ 5 % помилок в обидва боки</td></tr>
+            <tr><td class="num">0.7</td><td>Прототип Electron: мікрофон → VAD → Parakeet → Haiku → Piper, процес voice</td><td>p50 ≤ 1,5 с, p90 ≤ 2,5 с; власний голос не будить</td></tr>
+            <tr><td class="num">0.8</td><td>Нативні модулі під Electron: <code>better-sqlite3</code>, sherpa-onnx, <code>@napi-rs/keyring</code>; ресурси в спокої із завантаженим Parakeet. ✅ 2026-10-05: Electron 44.5.1, усі модулі на Node-API — без перезбирання; <code>onnxruntime-node</code> вантажиться першим; CPU 2,5 %, RAM 923 МБ; Parakeet з HDD — 3–10 с</td><td>готові збірки; CPU &lt; 3 %, RAM ≤ 1,5 ГБ</td></tr>
           </tbody>
         </table>
       </div>
@@ -3049,22 +3119,24 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
     <div class="cols">
       <div class="block">
         <h3>Етап 1 · Текстовий мозок</h3>
+        <p class="cost-assume">Іде паралельно з етапом 0 за вказівкою власника (2026-10-05): спершу кроки без Electron.</p>
         <ul class="ticks">
           <li><b>1.1</b> Каркас: core в <code>utilityProcess</code>, desktop (Electron + React), <code>mcp/pc</code>, <code>shared</code>; IPC через <code>MessagePort</code>.</li>
-          <li><b>1.2</b> Протокол core ↔ desktop і схема налаштувань (zod).</li>
-          <li><b>1.3</b> SQLite з міграціями, зокрема <code>routines</code> і <code>aliases</code> для вбудованих команд; журнал роботи.</li>
-          <li><b>1.4</b> <code>mcp/pc</code>: постійний PowerShell, 11 інструментів з рівнями, розбір PowerShell (AST), Кошик і «скасуй».</li>
-          <li><b>1.5</b> Агентний цикл: кеш, <code>final</code>, <code>escalate</code>, один хід за раз, «стоп», облік і ліміти, базовий режим.</li>
-          <li><b>1.6</b> Без ШІ: нормалізація, словник назв, вбудовані команди, перемикач ШІ.</li>
+          <li>✅ <b>1.2</b> Протокол core ↔ desktop і схема налаштувань (zod).</li>
+          <li>✅ <b>1.3</b> SQLite з міграціями й копією перед міграцією; журнал роботи; <code>npm run db</code>.</li>
+          <li>✅ <b>1.4</b> <code>mcp/pc</code>: MCP-сервер, постійний PowerShell, 11 інструментів з рівнями, рівень PowerShell за AST, Кошик і «скасуй»; <code>npm run pc:check</code>.</li>
+          <li>✅ <b>1.5</b> Агентний цикл: кеш, <code>final</code>, Sonnet-субагент, один хід за раз, «стоп», «скасуй», облік і ліміти, збої API → базовий режим.</li>
+          <li>✅ <b>1.6</b> Без ШІ: 24 вбудовані рутини, словник назв, стан ШІ з лімітами, перемикач; 21 з 50 команд набору без ШІ.</li>
           <li><b>1.7</b> Інтерфейс: оверлей, підтвердження, клавіші, центр керування, майстер, ключ Claude в налаштуваннях.</li>
-          <li><b>1.8</b> <code>npm run evals</code> зі сценаріями ін'єкцій.</li>
-          <li><b>1.9</b> Встановлювач, автозапуск, діагностика; перевірка у ВМ Windows 11.</li>
+          <li>✅ <b>1.8</b> <code>npm run evals</code> на рушії core: 96 %, ін'єкцій виконано 0 з 12.</li>
+          <li><b>1.9</b> Встановлювач з вибором диска, усе в одній теці <code>Banshee</code>, перевірка системних вимог, автозапуск, діагностика; перевірка у ВМ Windows 11.</li>
+          <li><b>1.10</b> Довідка в програмі з посиланнями на налаштування.</li>
         </ul>
       </div>
       <div class="block">
         <h3>Етапи 2–4</h3>
         <ul class="ticks">
-          <li><b>Голос:</b> мікрофон з ехоподавленням, KWS і VAD, Whisper і Piper у процесі voice, спекулятивний старт, голос власника, дзвінки й заблокований ПК.</li>
+          <li><b>Голос:</b> мікрофон з ехоподавленням, модель слова й VAD, Parakeet і Piper у процесі voice, спекулятивний старт, голос власника, дзвінки й заблокований ПК; 2.6 — налаштування під голос і мікрофон користувача в майстрі й налаштуваннях.</li>
           <li><b>Пам'ять і навчання:</b> профіль і правила, рутини й вивчені рутини, самоаналіз із перевіркою, спогади й «забудь», «Пам'ять», «Навички», графіки навчання, файл <code>.banshee</code>.</li>
           <li><b>Розширення:</b> синхронізація через OneDrive, <code>code_task</code> у PowerShell без ключів API, браузер, нагадування, брифінги й погода (Open-Meteo, без ключа).</li>
         </ul>
@@ -3084,13 +3156,15 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
       <div class="block">
         <h3>Ризики плану</h3>
         <ul class="ticks">
-          <li>KWS погано ловить «Banshee» — інші написання ключового слова або openWakeWord.</li>
-          <li>Немає готових збірок нативних модулів — інша версія Electron або Build Tools після звільнення C:.</li>
-          <li>Whisper на GTX 960 повільний — спекулятивний старт, менша модель; хмарний Whisper Groq без картки — лише за рішенням власника.</li>
-          <li>Whisper у пам'яті не вкладається в N6 — модель у пам'яті відеокарти; інакше переглянути N6 з власником.</li>
-          <li>Немає готової збірки Whisper з GPU для Node — процесор і менша модель; <code>whisper-server</code> чи хмара — лише за рішенням власника.</li>
+          <li>KWS погано ловить «Banshee» — <b>справдився</b>: готові моделі ловлять 12 з 33. Рішення власника: власна модель слова з перевіркою голосу, далі — довчання; довша фраза — лише за його рішенням.</li>
+          <li>Немає готових збірок нативних модулів — <b>знято</b> (крок 0.8): усі модулі на Node-API. Новий: <code>sherpa-onnx</code> і <code>onnxruntime-node</code> везуть різні <code>onnxruntime.dll</code> — <code>onnxruntime-node</code> вантажиться першим.</li>
+          <li>Whisper на GTX 960 повільний — справдився (1,67 с); вирішено: розпізнавання — Parakeet на процесорі.</li>
+          <li>Точність Parakeet не підніметься до 90 % на кроці 2.2 — запасний варіант 3: Whisper на відеокарті для незрозумілих команд, <code>whisper-server</code> — після рішення власника.</li>
+          <li>N6 переглянуто до 1,5 ГБ через Parakeet (≈ 0,8 ГБ); не вкладемось — менша модель слова, вивантаження Parakeet після довгої тиші.</li>
+          <li>Готової збірки whisper.cpp для Node немає — для варіанта 3 лише <code>whisper-server</code>, після рішення власника.</li>
           <li>Мало місця на C: — дані розробки, кеш npm і моделі на D:.</li>
           <li>Defender блокує — виняток для теки програми.</li>
+          <li>Мікрофон — Bluetooth-гарнітура, власник носить її не завжди: без неї поруч Banshee слухає інший мікрофон і може не впізнати власника; під музикою з колонок слово й музика однаково гучні. Другий мікрофон — окремі профіль голосу, поріг слова й записи етапу 0.</li>
         </ul>
       </div>
     </div>
@@ -3112,7 +3186,7 @@ kbd { font: 500 0.75rem/1 var(--font-mono); padding: 2px 5px; border: 1px solid 
 </main>
 
 <footer class="foot deck">
-  <span>Banshee · ТЗ v3.7 · 2026-10-03</span>
+  <span>Banshee · ТЗ v3.21 · 2026-10-05</span>
   <span>джерело: .claude/logic/*.md</span>
 </footer>
 

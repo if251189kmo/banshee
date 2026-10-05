@@ -1,0 +1,9 @@
+node_modules/
+out/
+dist/
+coverage/
+.data/
+evals/results/
+package-lock.json
+# ТЗ, презентація й налаштування Claude Code форматуються вручну
+.claude/

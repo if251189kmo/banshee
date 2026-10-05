@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Записувач Banshee</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <h1>Banshee · записи етапу 0</h1>
+      <label class="field"
+        >Мікрофон
+        <select id="mic"></select
+      ></label>
+      <label class="check">
+        <input type="checkbox" id="processing" checked />
+        обробка браузера, як у продукті
+      </label>
+      <div class="level">
+        <div class="meter" role="meter" aria-label="Рівень мікрофона">
+          <div id="meter-bar"></div>
+        </div>
+        <span id="meter-text">—</span>
+      </div>
+    </header>
+    <nav id="tabs" class="tabs" aria-label="Набори записів"></nav>
+    <main id="panel" class="panel"></main>
+    <p id="status" class="status" role="status"></p>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

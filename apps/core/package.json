@@ -1,0 +1,21 @@
+{
+  "name": "@banshee/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Banshee: core — агентний цикл, політика дій, пам'ять, облік витрат",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./brain/*": "./src/brain/*.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@banshee/pc": "^0.0.0",
+    "@banshee/shared": "0.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "better-sqlite3": "^13.0.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0"
+  }
+}

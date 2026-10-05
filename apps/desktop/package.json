@@ -1,0 +1,15 @@
+{
+  "name": "@banshee/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Banshee: desktop — Electron: трей, оверлей, аудіо, процес voice, підтвердження",
+  "type": "module",
+  "main": "src/main.ts",
+  "dependencies": {
+    "@banshee/core": "0.0.0",
+    "@banshee/shared": "0.0.0"
+  },
+  "devDependencies": {
+    "electron": "44.5.1"
+  }
+}
