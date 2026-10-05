@@ -26,5 +26,6 @@
     "scripts/**/*.ts",
     "prototypes/**/*.ts",
     "vitest.config.ts"
-  ]
+  ],
+  "exclude": ["**/node_modules", "**/out", "apps/desktop/src/renderer", "apps/desktop/src/preload"]
 }

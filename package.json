@@ -13,12 +13,14 @@
     "packages/*"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p apps/desktop/src/renderer && tsc --noEmit -p apps/desktop/src/preload",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "check": "npm run typecheck && npm run lint && npm test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "dev": "node scripts/desktop.ts dev",
+    "build": "node scripts/desktop.ts build",
     "key": "node scripts/key.ts",
     "check:api": "node scripts/check-api.ts",
     "evals": "node scripts/evals.ts",
@@ -33,7 +35,9 @@
     "tts": "node prototypes/tts/run.ts",
     "wakeword": "node prototypes/wakeword/run.ts",
     "kws": "node prototypes/kws/run.ts",
-    "idle": "node prototypes/idle/run.ts"
+    "idle": "node prototypes/idle/run.ts",
+    "desktop:check": "node scripts/desktop.ts check",
+    "desktop:icons": "node apps/desktop/scripts/icons.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

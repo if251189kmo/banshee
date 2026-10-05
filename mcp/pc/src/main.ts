@@ -11,9 +11,26 @@ const log = values.logs ? createLog({ dir: values.logs, source: 'pc' }) : null;
 const shell = createShell();
 const server = createPcServer(shell, '0.0.0');
 const transport = new StdioServerTransport();
-transport.onclose = () => {
+
+let stopped = false;
+function stop(reason: string): void {
+  if (stopped) return;
+  stopped = true;
   shell.close();
-  log?.info('pc.stop');
+  log?.info('pc.stop', { reason });
+  process.exit(0);
+}
+
+transport.onclose = () => {
+  stop('transport');
 };
+// Core завершився чи впав: Windows не закриває дочірні процеси разом із батьківським, а stdin
+// закривається — тоді завершуємось і ми разом із PowerShell, а не лишаємось сиротою.
+process.stdin.once('end', () => {
+  stop('stdin');
+});
+process.stdin.once('close', () => {
+  stop('stdin');
+});
 await server.connect(transport);
 log?.info('pc.start');

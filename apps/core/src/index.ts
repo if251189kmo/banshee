@@ -1,5 +1,5 @@
 // @banshee/core — агентний цикл, політика дій, пам'ять, облік витрат (.claude/logic/01-architecture.md).
-// Етап 1 будується без Electron: БД (крок 1.3), базовий режим без ШІ (1.6), далі інструменти й цикл.
+// Від Electron не залежить: utilityProcess з apps/desktop лише передає шляхи й порти (крок 1.1).
 export {
   aiStatus,
   limitWarning,
@@ -46,4 +46,13 @@ export {
 } from './brain/model-client.ts';
 export { buildSystem, SYSTEM_PROMPT } from './brain/prompt.ts';
 export { Engine, EMPTY_PROFILE, EPISODE_GAP_MS, type Command, type EngineDeps } from './engine.ts';
-export { connectPc, mcpToolRunner } from './pc-client.ts';
+export {
+  connectPc,
+  mcpToolRunner,
+  pcToolRunner,
+  unavailablePcTools,
+  type PcLaunch,
+} from './pc-client.ts';
+export { CoreHost, type HostEngine, type HostPort } from './host.ts';
+export { startCore, type StartedCore, type StartOptions } from './start.ts';
+export { CLAUDE_KEY_RECORD, readClaudeKey } from './credentials.ts';

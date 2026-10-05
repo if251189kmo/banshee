@@ -160,6 +160,11 @@ export class Engine {
     );
   }
 
+  /** Повідомляє desktop, якщо стан ШІ змінився: після зміни налаштувань чи ключа. */
+  refreshState(): AiStatus {
+    return this.publishState();
+  }
+
   /** Повідомляє desktop, якщо стан ШІ змінився. */
   private publishState(): AiStatus {
     const status = this.status();
@@ -691,16 +696,19 @@ export class Engine {
     return phrases.length > 0 ? phrases.join(' ') : FAILURE_PHRASES.done;
   }
 
-  /** «Скасуй»: остання дія з даними для скасування, яку ще не скасовано. */
-  async undo(): Promise<string> {
+  /**
+   * «Скасуй»: остання дія з даними для скасування, яку ще не скасовано; actionId — кнопка
+   * «Скасувати» на картці конкретної дії.
+   */
+  async undo(actionId?: number): Promise<string> {
     const row = this.deps.db
-      .prepare<[], { id: number; tool: string; undo_json: string }>(
+      .prepare<[number | null, number | null], { id: number; tool: string; undo_json: string }>(
         `SELECT id, tool, undo_json FROM actions
-         WHERE undo_json IS NOT NULL AND status = 'done'
+         WHERE undo_json IS NOT NULL AND status = 'done' AND (? IS NULL OR id = ?)
            AND id NOT IN (SELECT CAST(json_extract(args_json, '$.actionId') AS INTEGER) FROM actions WHERE tool = 'undo')
          ORDER BY id DESC LIMIT 1`,
       )
-      .get();
+      .get(actionId ?? null, actionId ?? null);
     if (!row) return FAILURE_PHRASES.nothingToUndo;
     const record: unknown = JSON.parse(row.undo_json);
     let ok: boolean;

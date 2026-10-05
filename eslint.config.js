@@ -33,9 +33,9 @@ const BROWSER_GLOBALS = Object.fromEntries(
 export default defineConfig(
   globalIgnores([
     'node_modules/',
-    'out/',
-    'dist/',
-    '.data/',
+    '**/out/',
+    '**/dist/',
+    '**/.data/',
     'coverage/',
     'evals/results/',
     '.claude/',
