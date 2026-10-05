@@ -10,6 +10,8 @@ export function About() {
   const [info, setInfo] = useState<AboutInfo | null>(null);
   const [diagnostics, setDiagnostics] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [erase, setErase] = useState<'idle' | 'confirm' | 'busy'>('idle');
+  const [eraseError, setEraseError] = useState<string | null>(null);
 
   useEffect(() => {
     window.banshee.invoke('about').then(
@@ -123,6 +125,70 @@ export function About() {
         {diagnostics ? (
           <p role="status" className="small">
             {diagnostics}
+          </p>
+        ) : null}
+      </section>
+      <section className="card">
+        <h2>Видалити всі дані</h2>
+        <p>
+          Пам&apos;ять, налаштування, моделі й журнали — у Кошик, ключ Claude — з Credential
+          Manager, програма — з ПК. Звичайне видалення в «Програмах та компонентах» лишає дані для
+          перевстановлення.
+        </p>
+        {erase === 'confirm' ? (
+          <div className="inline-confirm" role="alertdialog" aria-label="Підтвердження видалення">
+            <p>
+              Видалити Banshee разом з усіма даними? Скасувати це не можна, крім відновлення з
+              Кошика.
+            </p>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                setErase('busy');
+                window.banshee.invoke('erase').then(
+                  () => undefined,
+                  (error: unknown) => {
+                    setErase('idle');
+                    setEraseError(
+                      error instanceof Error
+                        ? error.message.replace(
+                            /^Error invoking remote method '[^']+': (Error: )?/,
+                            '',
+                          )
+                        : 'Не вийшло',
+                    );
+                  },
+                );
+              }}
+            >
+              Так, видалити все
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                setErase('idle');
+              }}
+            >
+              Скасувати
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="danger"
+            disabled={erase === 'busy'}
+            onClick={() => {
+              setErase('confirm');
+            }}
+          >
+            {erase === 'busy' ? 'Видаляю…' : 'Видалити всі дані'}
+          </button>
+        )}
+        {eraseError ? (
+          <p className="error" role="alert">
+            {eraseError}
           </p>
         ) : null}
       </section>

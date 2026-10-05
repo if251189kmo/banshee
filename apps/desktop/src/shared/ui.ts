@@ -46,7 +46,7 @@ export const uiToMain = z.discriminatedUnion('type', [
 ]);
 
 /** Запити сторінки до головного процесу з відповіддю (ipcRenderer.invoke). */
-export const INVOKE_CHANNELS = ['about', 'diagnostics'] as const;
+export const INVOKE_CHANNELS = ['about', 'diagnostics', 'erase'] as const;
 export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];
 export type UiToMain = z.output<typeof uiToMain>;
 

@@ -2,7 +2,9 @@
 // треї, core в utilityProcess під наглядом, оверлей і центр керування з портами MessagePort до
 // core — без мережевих портів. Гарячі клавіші, тема й автозапуск — з налаштувань core.
 // `--self-check` — перевірка програми: старт, вікно, перезапуск core, другий екземпляр.
-import { release } from 'node:os';
+import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { release, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   parseControlFromCore,
@@ -41,6 +43,7 @@ import corePath from '../core/core.ts?modulePath';
 import pcPath from '../pc/pc.ts?modulePath';
 import { EXTERNAL_LINKS, uiToMain, type Section, type UiToWindow } from '../shared/ui.ts';
 import { aboutInfo, collectDiagnostics } from './about.ts';
+import { eraseScript, eraseTarget } from './erase.ts';
 import { bansheePaths, selfCheckPaths } from './paths.ts';
 import {
   OVERLAY_MIN_HEIGHT,
@@ -494,6 +497,30 @@ ipcMain.handle('ui:about', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win || !windows.has(win)) throw new Error('Невідоме вікно');
   return about();
+});
+
+/**
+ * «Видалити всі дані»: ключ — через core, далі окремий PowerShell після виходу Banshee запускає
+ * деінсталятор і кладе теку Banshee в Кошик. У розробці й розпакованій збірці — відмова.
+ */
+ipcMain.handle('ui:erase', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || !windows.has(win)) throw new Error('Невідоме вікно');
+  const target = SELF_CHECK ? null : eraseTarget(paths.root, app.isPackaged);
+  if (!target) throw new Error('Лише у встановленій програмі.');
+  await ask({ type: 'key.delete', id: ulid() });
+  const script = join(tmpdir(), `banshee-erase-${String(Date.now())}.ps1`);
+  writeFileSync(script, `\uFEFF${eraseScript(target, process.pid)}`);
+  spawn(
+    'powershell.exe',
+    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script],
+    { detached: true, stdio: 'ignore' },
+  ).unref();
+  log.info('erase', { root: target.root });
+  setTimeout(() => {
+    app.quit();
+  }, 200);
+  return true;
 });
 
 ipcMain.handle('ui:diagnostics', async (event) => {

@@ -43,9 +43,9 @@ contextBridge.exposeInMainWorld('banshee', {
   ui(command: unknown): void {
     ipcRenderer.send('ui', command);
   },
-  /** Запит до головного процесу: «Про програму», діагностика. */
+  /** Запит до головного процесу: «Про програму», діагностика, «Видалити всі дані». */
   invoke(channel: unknown): Promise<unknown> {
-    return channel === 'about' || channel === 'diagnostics'
+    return channel === 'about' || channel === 'diagnostics' || channel === 'erase'
       ? ipcRenderer.invoke(`ui:${channel}`)
       : Promise.reject(new Error('Невідомий запит'));
   },
