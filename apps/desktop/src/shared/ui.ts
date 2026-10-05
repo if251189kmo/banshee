@@ -4,7 +4,15 @@
 import { z } from '@banshee/shared/zod';
 
 /** Розділи центру керування (.claude/logic/09-ui.md); `wizard` — майстер першого запуску. */
-export const SECTIONS = ['overview', 'activity', 'journal', 'settings', 'wizard'] as const;
+export const SECTIONS = [
+  'overview',
+  'activity',
+  'journal',
+  'settings',
+  'help',
+  'about',
+  'wizard',
+] as const;
 export type Section = (typeof SECTIONS)[number];
 
 /** Посилання, які сторінки можуть відкрити в браузері: Console для ключа й оплати (12-api.md). */
@@ -31,7 +39,15 @@ export const uiToMain = z.discriminatedUnion('type', [
     anchor: z.string().max(80).optional(),
   }),
   z.object({ type: z.literal('external.open'), link: z.enum(LINKS) }),
+  /** Тека Banshee в Провіднику. */
+  z.object({ type: z.literal('folder.open') }),
+  /** Останній зібраний архів діагностики — у Провіднику. */
+  z.object({ type: z.literal('diagnostics.show') }),
 ]);
+
+/** Запити сторінки до головного процесу з відповіддю (ipcRenderer.invoke). */
+export const INVOKE_CHANNELS = ['about', 'diagnostics'] as const;
+export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];
 export type UiToMain = z.output<typeof uiToMain>;
 
 export const uiToWindow = z.discriminatedUnion('type', [

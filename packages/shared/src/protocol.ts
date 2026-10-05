@@ -175,6 +175,12 @@ const settingsChanged = z.object({
   key: z.string(),
   value: z.unknown(),
 });
+/** Відкрити розділ центру керування: команда «довідка» без ШІ (09-ui.md, «Довідка»). */
+const open = z.object({
+  type: z.literal('open'),
+  section: z.enum(['help']),
+  topic: z.string().max(40).optional(),
+});
 /** Сповіщення Windows: 80 % ліміту, базовий режим, збій. */
 const notice = z.object({
   type: z.literal('notice'),
@@ -194,6 +200,7 @@ export const coreMessage = z.discriminatedUnion('type', [
   aiState,
   settingsChanged,
   notice,
+  open,
 ]);
 export type CoreMessage = z.output<typeof coreMessage>;
 

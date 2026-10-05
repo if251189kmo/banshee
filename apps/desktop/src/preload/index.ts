@@ -43,6 +43,12 @@ contextBridge.exposeInMainWorld('banshee', {
   ui(command: unknown): void {
     ipcRenderer.send('ui', command);
   },
+  /** Запит до головного процесу: «Про програму», діагностика. */
+  invoke(channel: unknown): Promise<unknown> {
+    return channel === 'about' || channel === 'diagnostics'
+      ? ipcRenderer.invoke(`ui:${channel}`)
+      : Promise.reject(new Error('Невідомий запит'));
+  },
   onUi(listener: Listener): () => void {
     const handler = (_event: IpcRendererEvent, command: unknown) => {
       listener(command);

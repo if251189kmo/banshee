@@ -7,7 +7,7 @@ import { BUILTIN_ROUTINES, CONTROL_COMMANDS, type Routine } from './builtins.ts'
 import { matchRoutine, type RoutineMatch } from './match.ts';
 import { FILLER_WORDS, normalize, words } from './text.ts';
 
-export type ControlCommand = 'stop' | 'undo' | 'new_episode';
+export type ControlCommand = 'stop' | 'undo' | 'new_episode' | 'help';
 
 export type Route =
   | { readonly kind: 'control'; readonly command: ControlCommand }

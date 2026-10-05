@@ -41,6 +41,8 @@ const VIEWS: readonly { name: string; command: UiToWindow }[] = [
     name: 'settings-security',
     command: { type: 'center.section', section: 'settings', anchor: 'security.massOperationFiles' },
   },
+  { name: 'about', command: { type: 'center.section', section: 'about' } },
+  { name: 'help', command: { type: 'center.section', section: 'help', anchor: 'safety' } },
   { name: 'wizard', command: { type: 'center.section', section: 'wizard' } },
 ];
 

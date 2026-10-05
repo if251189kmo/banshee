@@ -1,0 +1,52 @@
+# Встановлювач Banshee (.claude/logic/01-architecture.md, «Встановлення й оновлення»): NSIS для
+# поточного користувача, без прав адміністратора, з вибором теки. Усе в одній теці Banshee:
+# програма — у підтеці app\ (build/installer.nsh), поруч data\, models\, logs\.
+appId: ua.banshee.desktop
+productName: Banshee
+copyright: Banshee
+directories:
+  # На диску D: — збірка й кеші, на C: мало місця.
+  output: ../../.data/dist
+  buildResources: build
+files:
+  - out/**
+  - resources/**
+  - package.json
+  # better-sqlite3: лише готова збірка для Windows x64, без вихідного коду SQLite (≈ 25 МБ менше).
+  - '!**/node_modules/better-sqlite3/deps/**'
+  - '!**/node_modules/better-sqlite3/src/**'
+  - '!**/node_modules/better-sqlite3/prebuilds/{darwin,linux,linuxmusl}-*.node'
+  - '!**/node_modules/better-sqlite3/prebuilds/win32-arm64.node'
+asar: true
+# Іконки сповіщень Windows читає з файлу, а не з asar.
+asarUnpack:
+  - resources/**
+# Electron — той самий, що в розробці: без завантаження й перезбирання нативних модулів (Node-API).
+electronDist: ../../node_modules/electron/dist
+electronVersion: 44.5.1
+npmRebuild: false
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.ico
+  executableName: Banshee
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Banshee
+  uninstallDisplayName: Banshee
+  artifactName: Banshee-Setup-${version}.exe
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+  include: build/installer.nsh
+  language: '1058'
+  installerLanguages: [uk_UA]
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true

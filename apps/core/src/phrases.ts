@@ -103,6 +103,7 @@ export const FAILURE_PHRASES = {
   voiceRejected: 'Голос не впізнано',
   denied: 'Добре, не роблю.',
   nothingToUndo: 'Немає чого скасувати.',
+  help: 'Відкриваю довідку.',
   undone: 'Скасовано.',
   done: 'Готово.',
 } as const;

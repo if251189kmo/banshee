@@ -40,6 +40,7 @@ import {
 import corePath from '../core/core.ts?modulePath';
 import pcPath from '../pc/pc.ts?modulePath';
 import { EXTERNAL_LINKS, uiToMain, type Section, type UiToWindow } from '../shared/ui.ts';
+import { aboutInfo, collectDiagnostics } from './about.ts';
 import { bansheePaths, selfCheckPaths } from './paths.ts';
 import {
   OVERLAY_MIN_HEIGHT,
@@ -93,6 +94,7 @@ const coreReadyAt: number[] = [];
 const coreExitAt: number[] = [];
 const pcPids: (number | null)[] = [];
 let turnsDone = 0;
+let lastDiagnostics: string | null = null;
 const replies = new Map<string, (reply: Extract<CoreMessage, { type: 'reply' }>) => void>();
 
 const supervisor = new Supervisor({
@@ -234,7 +236,8 @@ function applySetting(key: SettingKey): void {
     case 'general.autostart':
       // Лише зібрана програма: у розробці автозапуск записав би electron.exe.
       if (app.isPackaged && !SELF_CHECK) {
-        app.setLoginItemSettings({ openAtLogin: settings['general.autostart'] });
+        // Назва запису Run — «Banshee»: її прибирає деінсталятор (build/installer.nsh).
+        app.setLoginItemSettings({ openAtLogin: settings['general.autostart'], name: 'Banshee' });
       }
       return;
     case 'general.setupDone':
@@ -306,6 +309,10 @@ function onCoreMessage(data: unknown): void {
       return;
     case 'notice':
       notify(message.text);
+      return;
+    case 'open':
+      // «Довідка» голосом чи в оверлеї — центр керування на темі.
+      if (!SELF_CHECK) showCenter('help', message.topic);
       return;
     case 'turn.done':
       turnsDone += 1;
@@ -471,7 +478,34 @@ ipcMain.on('ui', (event, data: unknown) => {
     case 'external.open':
       void shell.openExternal(EXTERNAL_LINKS[command.link]);
       return;
+    case 'folder.open':
+      void shell.openPath(paths.root);
+      return;
+    case 'diagnostics.show':
+      if (lastDiagnostics) shell.showItemInFolder(lastDiagnostics);
+      return;
   }
+});
+
+const about = () =>
+  aboutInfo({ version: app.getVersion(), packaged: app.isPackaged, root: paths.root });
+
+ipcMain.handle('ui:about', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || !windows.has(win)) throw new Error('Невідоме вікно');
+  return about();
+});
+
+ipcMain.handle('ui:diagnostics', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || !windows.has(win)) throw new Error('Невідоме вікно');
+  lastDiagnostics = await collectDiagnostics({
+    info: await about(),
+    logsDir: paths.logs,
+    outDir: app.getPath('downloads'),
+  });
+  log.info('diagnostics', { files: 1 });
+  return lastDiagnostics;
 });
 
 function notify(text: string): void {
@@ -500,6 +534,7 @@ function refreshTray(): void {
       },
     },
     { label: 'Центр керування', click: () => showCenter() },
+    { label: 'Довідка', click: () => showCenter('help') },
     ...(view.canRestart
       ? [
           {
@@ -561,7 +596,9 @@ function start(): void {
       .catch((error: unknown) => {
         log.error('ui-shots', { error: error instanceof Error ? error.message : String(error) });
       })
-      .finally(() => { app.quit(); });
+      .finally(() => {
+        app.quit();
+      });
   } else if (SELF_CHECK) {
     void runSelfCheck(
       {

@@ -115,11 +115,8 @@ function Overlay() {
     (latest.text === null || Date.now() - shownAt < STALE_TURN_MS || latest.state !== 'done')
       ? latest
       : null;
-  const indicator = state.connection !== 'ready'
-    ? 'offline'
-    : busy
-      ? (latest?.state ?? 'thinking')
-      : 'idle';
+  const indicator =
+    state.connection !== 'ready' ? 'offline' : busy ? (latest?.state ?? 'thinking') : 'idle';
 
   return (
     <div

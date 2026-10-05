@@ -3,7 +3,8 @@
 //   npm run build          — збірка в apps/desktop/out;
 //   npm run desktop:check  — збірка й перевірка програми (`--self-check`): старт, вікно, команда без ШІ,
 //                            перезапуск core, другий екземпляр; результат — .data/desktop-check.json;
-//   npm run desktop:shots  — знімки центру керування й оверлею у світлій і темній темах: .data/ui-shots.
+//   npm run desktop:shots  — знімки центру керування й оверлею у світлій і темній темах: .data/ui-shots;
+//   npm run dist           — встановлювач NSIS у .data/dist (electron-builder; кеші — на D:).
 // Термінал VS Code успадковує ELECTRON_RUN_AS_NODE=1, і тоді Electron працює як звичайний Node, тож
 // змінну прибрано з оточення дочірніх процесів.
 import { spawnSync } from 'node:child_process';
@@ -15,9 +16,14 @@ const root = resolve(import.meta.dirname, '..');
 const desktop = join(root, 'apps', 'desktop');
 const electron = createRequire(import.meta.url)('electron') as string;
 const electronVite = join(root, 'node_modules', 'electron-vite', 'bin', 'electron-vite.js');
-const environment = Object.fromEntries(
-  Object.entries(process.env).filter(([name]) => name !== 'ELECTRON_RUN_AS_NODE'),
-);
+const environment: Record<string, string | undefined> = {
+  ...Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => name !== 'ELECTRON_RUN_AS_NODE'),
+  ),
+  // NSIS і решту інструментів electron-builder качає сюди, а не на C:.
+  ELECTRON_BUILDER_CACHE: join(root, '.data', 'electron-builder-cache'),
+};
+const electronBuilder = join(root, 'node_modules', 'electron-builder', 'cli.js');
 
 function run(command: string, args: readonly string[]): number {
   const result = spawnSync(command, args, { cwd: desktop, stdio: 'inherit', env: environment });
@@ -52,12 +58,21 @@ switch (mode) {
   case 'check':
     process.exit(check());
     break;
+  case 'dist': {
+    const built = run(process.execPath, [electronVite, 'build']);
+    process.exit(
+      built === 0
+        ? run(process.execPath, [electronBuilder, '--win', 'nsis', '--x64', '--publish', 'never'])
+        : built,
+    );
+    break;
+  }
   case 'shots': {
     const built = run(process.execPath, [electronVite, 'build']);
     process.exit(built === 0 ? run(electron, ['.', '--ui-shots']) : built);
     break;
   }
   default:
-    console.error('Використання: node scripts/desktop.ts dev | build | check | shots');
+    console.error('Використання: node scripts/desktop.ts dev | build | check | shots | dist');
     process.exit(2);
 }

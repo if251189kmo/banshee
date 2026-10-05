@@ -206,13 +206,19 @@ export const BUILTIN_ROUTINES: readonly Routine[] = [
 ];
 
 /** Команди керування: діють завжди й одразу, до розпізнавання рутин. */
-export const CONTROL_COMMANDS: Readonly<Record<string, 'stop' | 'undo' | 'new_episode'>> = {
-  стоп: 'stop',
-  зупинись: 'stop',
-  stop: 'stop',
-  скасуй: 'undo',
-  відміни: 'undo',
-  отмени: 'undo',
-  'нова розмова': 'new_episode',
-  'новый разговор': 'new_episode',
-};
+export const CONTROL_COMMANDS: Readonly<Record<string, 'stop' | 'undo' | 'new_episode' | 'help'>> =
+  {
+    стоп: 'stop',
+    зупинись: 'stop',
+    stop: 'stop',
+    скасуй: 'undo',
+    відміни: 'undo',
+    отмени: 'undo',
+    'нова розмова': 'new_episode',
+    'новый разговор': 'new_episode',
+    // Довідка в програмі (09-ui.md, «Довідка») — без ШІ.
+    довідка: 'help',
+    'відкрий довідку': 'help',
+    допомога: 'help',
+    справка: 'help',
+  };

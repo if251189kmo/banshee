@@ -425,6 +425,19 @@ describe('рушій ходів: збої й ліміти', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     await engine.command({ id: 't2', text: 'стоп', source: 'voice' });
     await turn;
-    expect(done()).toMatchObject([{ turnId: 't1', outcome: 'cancelled' }]);
+    expect(done()).toMatchObject([
+      { turnId: 't1', outcome: 'cancelled' },
+      // Сама команда «стоп» теж завершена — оверлей не чекає на неї.
+      { turnId: 't2', route: 'none', outcome: 'success', costUsd: 0 },
+    ]);
+  });
+
+  it('«довідка» — без ШІ: відкрити довідку й відповісти; хід не пишеться в turns', async () => {
+    const { db, engine, events, said, done } = await setup({ client: null });
+    await engine.command({ id: 'h', text: 'довідка', source: 'text' });
+    expect(events).toContainEqual({ type: 'open', section: 'help' });
+    expect(said()).toEqual(['Відкриваю довідку.']);
+    expect(done()).toMatchObject([{ turnId: 'h', route: 'none', outcome: 'success' }]);
+    expect(turnRows(db)).toEqual([]);
   });
 });

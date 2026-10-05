@@ -508,11 +508,7 @@ fieldset.group label {
 }
 
 .swatch.hatched {
-  background: repeating-linear-gradient(
-    45deg,
-    var(--series-b) 0 3px,
-    var(--surface) 3px 5px
-  );
+  background: repeating-linear-gradient(45deg, var(--series-b) 0 3px, var(--surface) 3px 5px);
 }
 
 .swatch.limit-swatch,
@@ -707,5 +703,34 @@ fieldset.group label {
   .confirm,
   .mark {
     border: 1px solid CanvasText;
+  }
+}
+
+/* Довідка */
+
+.help {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.help-topics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.help-topics button {
+  text-align: left;
+}
+
+.help-topic ul {
+  padding-left: 20px;
+}
+
+@media (max-width: 760px) {
+  .help {
+    grid-template-columns: 1fr;
   }
 }

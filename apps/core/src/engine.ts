@@ -353,6 +353,21 @@ export class Engine {
     );
   }
 
+  /**
+   * Кінець команди без рядка в `turns` — керування й чужий голос: оверлей знає, що хід завершено,
+   * а статистика його не рахує.
+   */
+  private uiDone(turnId: string, started: number, outcome: 'success' | 'cancelled'): void {
+    this.deps.emit({
+      type: 'turn.done',
+      turnId,
+      route: 'none',
+      outcome,
+      latencyMs: Math.round(performance.now() - started),
+      costUsd: 0,
+    });
+  }
+
   /** Команда власника — від початку до `turn.done`. */
   async command(command: Command): Promise<void> {
     const previous = this.running;
@@ -387,6 +402,7 @@ export class Engine {
       // Чужий голос: нічого не виконується, у журнал ходів фраза не потрапляє (02-voice.md).
       this.say(turnId, FAILURE_PHRASES.voiceRejected, false);
       this.bumpUsage('voice_rejected');
+      this.uiDone(turnId, started, 'cancelled');
       return;
     }
     const status = this.publishState();
@@ -399,10 +415,14 @@ export class Engine {
 
     if (routed.kind === 'control') {
       if (routed.command === 'stop') this.stop();
-      else if (routed.command === 'new_episode') {
+      else if (routed.command === 'help') {
+        this.deps.emit({ type: 'open', section: 'help' });
+        this.say(turnId, FAILURE_PHRASES.help);
+      } else if (routed.command === 'new_episode') {
         this.newEpisode();
         this.say(turnId, FAILURE_PHRASES.done);
       } else this.say(turnId, await this.undo());
+      this.uiDone(turnId, started, 'success');
       return;
     }
 

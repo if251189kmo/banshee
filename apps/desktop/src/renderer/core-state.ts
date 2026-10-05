@@ -119,6 +119,7 @@ export function reduceCore(state: CoreState, event: CoreEvent): CoreState {
       return { ...state, notices: [...state.notices, message.text].slice(-5) };
     case 'reply':
     case 'settings.changed':
+    case 'open':
       return state;
   }
 }

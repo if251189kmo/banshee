@@ -4,6 +4,7 @@
 import { SETTINGS, type SettingKey, type Settings } from '@banshee/shared';
 import { useEffect, useState } from 'react';
 import { AiStateCard } from '../components/AiStateCard.tsx';
+import { SECTION_TOPIC } from '../help/help-model.ts';
 import { core, onCoreMessage } from '../core-client.ts';
 import {
   controlFor,
@@ -293,9 +294,21 @@ function SettingRow({ settingKey, value }: { settingKey: SettingKey; value: unkn
   );
 }
 
-export function SettingsPage({ anchor }: { anchor?: string | undefined }) {
+export function SettingsPage({
+  anchor,
+  onSectionChange,
+  onHelp,
+}: {
+  anchor?: string | undefined;
+  onSectionChange?: (section: SectionId) => void;
+  onHelp?: (topic: string) => void;
+}) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [section, setSection] = useState<SectionId>('general');
+
+  useEffect(() => {
+    onSectionChange?.(section);
+  }, [section, onSectionChange]);
   const [query, setQuery] = useState('');
   const [hidden, setHidden] = useState(false);
 
@@ -365,6 +378,19 @@ export function SettingsPage({ anchor }: { anchor?: string | undefined }) {
             </button>
           ))}
         </nav>
+      ) : null}
+      {!query && onHelp ? (
+        <p>
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              onHelp(SECTION_TOPIC[`settings/${section}`] ?? 'start');
+            }}
+          >
+            ? Довідка до розділу (F1)
+          </button>
+        </p>
       ) : null}
       {!query && section === 'ai' ? <AiStateCard withKey /> : null}
       {!query && section === 'voice' ? (

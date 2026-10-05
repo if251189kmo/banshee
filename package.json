@@ -38,7 +38,8 @@
     "idle": "node prototypes/idle/run.ts",
     "desktop:check": "node scripts/desktop.ts check",
     "desktop:icons": "node apps/desktop/scripts/icons.ts",
-    "desktop:shots": "node scripts/desktop.ts shots"
+    "desktop:shots": "node scripts/desktop.ts shots",
+    "dist": "node scripts/desktop.ts dist"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

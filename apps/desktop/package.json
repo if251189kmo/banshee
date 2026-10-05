@@ -1,15 +1,14 @@
 {
   "name": "@banshee/desktop",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "Banshee: desktop — Electron: трей, оверлей, аудіо, процес voice, підтвердження",
+  "description": "Banshee — персональний голосовий асистент для Windows",
+  "author": "if251189kmo",
   "type": "module",
   "main": "out/main/index.js",
   "dependencies": {
     "@napi-rs/keyring": "^2.1.0",
-    "better-sqlite3": "^13.0.3",
-    "onnxruntime-node": "^1.30.0",
-    "sherpa-onnx-node": "^1.13.8"
+    "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
     "@banshee/core": "0.0.0",
@@ -19,6 +18,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "5.2.0",
     "electron": "44.5.1",
+    "electron-builder": "26.15.3",
     "electron-vite": "5.0.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

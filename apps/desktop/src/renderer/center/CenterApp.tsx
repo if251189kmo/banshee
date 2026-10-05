@@ -1,14 +1,17 @@
 // Центр керування (.claude/logic/09-ui.md, «Центр керування»): «Огляд», «Активність», «Журнал»,
-// «Налаштування» з карткою «Стан ШІ»; майстер першого запуску. Пам'ять, Навички, Синхронізація —
-// з етапів 3–4; Довідка й «Про програму» — крок 1.10. Картки підтвердження видно й тут.
+// «Налаштування» з карткою «Стан ШІ», «Про програму»; майстер першого запуску. Пам'ять, Навички,
+// Синхронізація — з етапів 3–4; Довідка — крок 1.10. Картки підтвердження видно й тут.
 import { AI_STATE_TEXT } from '@banshee/shared';
 import { useEffect, useState } from 'react';
 import { SECTIONS, uiToWindow, type Section } from '../../shared/ui.ts';
 import { ConfirmCard } from '../components/ConfirmCard.tsx';
 import { useCoreState } from '../core-client.ts';
+import { About } from './About.tsx';
 import { Activity } from './Activity.tsx';
 import { Journal } from './Journal.tsx';
 import { Overview } from './Overview.tsx';
+import { Help } from '../help/Help.tsx';
+import { SECTION_TOPIC } from '../help/help-model.ts';
 import { SettingsPage } from './SettingsPage.tsx';
 import { Wizard } from './Wizard.tsx';
 
@@ -17,6 +20,8 @@ const NAV: readonly { id: Section; title: string }[] = [
   { id: 'activity', title: 'Активність' },
   { id: 'journal', title: 'Журнал' },
   { id: 'settings', title: 'Налаштування' },
+  { id: 'help', title: 'Довідка' },
+  { id: 'about', title: 'Про програму' },
 ];
 
 /** `#settings/ai.limits` → розділ і пункт, на який прокрутити. */
@@ -29,6 +34,27 @@ function fromHash(hash: string): { section: Section; anchor?: string } {
 export function CenterApp() {
   const state = useCoreState();
   const [view, setView] = useState(() => fromHash(location.hash));
+  const [settingsSection, setSettingsSection] = useState('general');
+  const navigate = (section: Section, anchor?: string) => {
+    setView({ section, ...(anchor ? { anchor } : {}) });
+  };
+  const openHelp = (topic: string) => {
+    navigate('help', topic);
+  };
+
+  // F1 — тема довідки поточного розділу (09-ui.md, «Довідка»).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'F1') return;
+      event.preventDefault();
+      const key = view.section === 'settings' ? `settings/${settingsSection}` : view.section;
+      openHelp(SECTION_TOPIC[key] ?? SECTION_TOPIC[view.section] ?? 'start');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  });
 
   useEffect(
     () =>
@@ -96,7 +122,17 @@ export function CenterApp() {
         {view.section === 'overview' ? <Overview /> : null}
         {view.section === 'activity' ? <Activity /> : null}
         {view.section === 'journal' ? <Journal /> : null}
-        {view.section === 'settings' ? <SettingsPage anchor={view.anchor} /> : null}
+        {view.section === 'settings' ? (
+          <SettingsPage
+            anchor={view.anchor}
+            onSectionChange={setSettingsSection}
+            onHelp={openHelp}
+          />
+        ) : null}
+        {view.section === 'help' ? (
+          <Help topic={view.anchor} onTopic={openHelp} onNavigate={navigate} />
+        ) : null}
+        {view.section === 'about' ? <About /> : null}
         {view.section === 'wizard' ? (
           <Wizard
             onDone={() => {
