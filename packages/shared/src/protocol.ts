@@ -4,10 +4,14 @@
 import { AI_STATES } from './ai.ts';
 import { ACTION_LEVELS, ACTION_STATUSES, CONFIRM_METHODS } from './levels.ts';
 import { TURN_OUTCOMES, TURN_ROUTES, TURN_SOURCES, TURN_STATES } from './turns.ts';
+import { STATS_PERIODS } from './views.ts';
 import { z } from './zod.ts';
 
-/** Версія протоколу: core і desktop однієї збірки; різні версії — помилка встановлення. */
-export const PROTOCOL_VERSION = 1;
+/**
+ * Версія протоколу: core і desktop однієї збірки; різні версії — помилка встановлення.
+ * 2 — крок 1.7: ключ Claude, картка «Стан ШІ», статистика й журнал.
+ */
+export const PROTOCOL_VERSION = 2;
 
 const id = z.string().min(1).max(64);
 
@@ -48,6 +52,31 @@ const aiExtraDay = z.object({ type: z.literal('ai.extraDay'), id });
 const newEpisode = z.object({ type: z.literal('episode.new') });
 /** «Скасуй»: actionId — кнопка на картці дії; без нього — остання дія, яку можна скасувати. */
 const undo = z.object({ type: z.literal('undo'), id, actionId: id.optional() });
+/**
+ * Ключ Claude (12-api.md, «Ключ»): стан «••••1234», вставити й перевірити, перевірити наявний,
+ * видалити. Сам ключ іде лише в `key.set` і далі — у Credential Manager; назад не повертається.
+ */
+const keyStatus = z.object({ type: z.literal('key.status'), id });
+const keySet = z.object({ type: z.literal('key.set'), id, key: z.string().min(1).max(500) });
+const keyCheck = z.object({ type: z.literal('key.check'), id });
+const keyDelete = z.object({ type: z.literal('key.delete'), id });
+/** Картка «Стан ШІ»: стан, модель, ключ, витрати проти лімітів, оцінка кредитів. */
+const aiDetails = z.object({ type: z.literal('ai.details'), id });
+/** «Огляд» і «Активність»: ходи, частка без ШІ, витрати, затримка за період. */
+const statsGet = z.object({
+  type: z.literal('stats.get'),
+  id,
+  days: z.union(STATS_PERIODS.map((days) => z.literal(days))),
+});
+/** Журнал дій з фільтрами; before — id останнього показаного запису. */
+const journalList = z.object({
+  type: z.literal('journal.list'),
+  id,
+  limit: z.number().int().min(1).max(200),
+  before: z.number().int().min(1).optional(),
+  level: z.enum(ACTION_LEVELS).optional(),
+  status: z.enum(ACTION_STATUSES).optional(),
+});
 
 export const desktopMessage = z.discriminatedUnion('type', [
   hello,
@@ -59,6 +88,13 @@ export const desktopMessage = z.discriminatedUnion('type', [
   aiExtraDay,
   newEpisode,
   undo,
+  keyStatus,
+  keySet,
+  keyCheck,
+  keyDelete,
+  aiDetails,
+  statsGet,
+  journalList,
 ]);
 export type DesktopMessage = z.output<typeof desktopMessage>;
 
@@ -69,7 +105,7 @@ const ready = z.object({
   version: z.number().int(),
   aiState: z.enum(AI_STATES),
 });
-/** Відповідь на запит з id: settings.get, settings.set, ai.extraDay, undo. */
+/** Відповідь на запит з id: налаштування, ключ, «Стан ШІ», статистика, журнал, «скасуй». */
 const reply = z.object({
   type: z.literal('reply'),
   id,

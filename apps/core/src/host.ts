@@ -16,7 +16,9 @@ import type { Log } from '@banshee/shared/log';
 import type { AiStatus } from './ai/state.ts';
 import type { Db } from './db/database.ts';
 import type { Command } from './engine.ts';
+import type { KeyService } from './keys.ts';
 import { readSettings, writeSetting } from './settings/store.ts';
+import { aiDetails, journal, stats } from './views.ts';
 
 export interface HostPort {
   postMessage(message: CoreMessage): void;
@@ -33,17 +35,24 @@ export interface HostEngine {
   allowExtraToday(): void;
   newEpisode(): void;
   undo(actionId?: number): Promise<string>;
+  spending(): { todayUsd: number; monthUsd: number; extraTodayUsd: number };
 }
 
 export interface HostDeps {
   readonly db: Db;
   readonly deviceId: string;
+  /** Ключ Claude; без нього запити `key.*` відповідають помилкою. */
+  readonly keys?: KeyService;
   readonly log?: Log;
   readonly now?: () => Date;
 }
 
 type Answer = { ok: true; result?: unknown } | { ok: false; error: string };
 type SettingsSet = Extract<DesktopMessage, { type: 'settings.set' }>;
+type KeyMessage = Extract<
+  DesktopMessage,
+  { type: 'key.status' | 'key.set' | 'key.check' | 'key.delete' }
+>;
 
 const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -167,6 +176,65 @@ export class CoreHost {
         this.answer(port, message.id, { ok: true, result: await engine.undo(actionId) });
         return;
       }
+      case 'key.status':
+      case 'key.set':
+      case 'key.check':
+      case 'key.delete':
+        await this.key(port, message);
+        return;
+      case 'ai.details': {
+        const key = (await this.deps.keys?.status()) ?? { present: false, masked: null };
+        this.answer(port, message.id, {
+          ok: true,
+          result: aiDetails(this.deps.db, {
+            status: engine.status(),
+            spending: engine.spending(),
+            key,
+          }),
+        });
+        return;
+      }
+      case 'stats.get':
+        this.answer(port, message.id, {
+          ok: true,
+          result: stats(this.deps.db, message.days, this.deps.now?.() ?? new Date()),
+        });
+        return;
+      case 'journal.list':
+        this.answer(port, message.id, {
+          ok: true,
+          result: journal(this.deps.db, {
+            limit: message.limit,
+            ...(message.before === undefined ? {} : { before: message.before }),
+            ...(message.level === undefined ? {} : { level: message.level }),
+            ...(message.status === undefined ? {} : { status: message.status }),
+          }),
+        });
+        return;
+    }
+  }
+
+  /** Ключ Claude: сам ключ лише приходить у `key.set`; назовні — «••••1234». */
+  private async key(port: HostPort, message: KeyMessage): Promise<void> {
+    const keys = this.deps.keys;
+    if (!keys) {
+      this.answer(port, message.id, { ok: false, error: 'Сховище ключів недоступне' });
+      return;
+    }
+    switch (message.type) {
+      case 'key.status':
+        this.answer(port, message.id, { ok: true, result: await keys.status() });
+        return;
+      case 'key.set':
+        this.answer(port, message.id, { ok: true, result: await keys.set(message.key) });
+        return;
+      case 'key.check':
+        this.answer(port, message.id, { ok: true, result: await keys.check() });
+        return;
+      case 'key.delete':
+        await keys.remove();
+        this.answer(port, message.id, { ok: true });
+        return;
     }
   }
 

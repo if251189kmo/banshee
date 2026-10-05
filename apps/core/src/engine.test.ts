@@ -396,6 +396,21 @@ describe('рушій ходів: збої й ліміти', () => {
     expect(engine.status().state).toBe('active');
   });
 
+  it('80 % денного ліміту — одне сповіщення за день, а не на кожен хід', async () => {
+    const client = fakeClient([reply([text('Перше.')]), reply([text('Друге.')])]);
+    const { db, engine, events } = await setup({ client });
+    db.prepare(
+      `INSERT INTO llm_calls (purpose, model, input_tokens, output_tokens, cost_usd, created_at)
+       VALUES ('turn', 'claude-haiku-4-5', 1, 1, 0.85, ?)`,
+    ).run(new Date(2026, 9, 5, 9, 0).toISOString());
+    await engine.command({ id: 'a', text: 'розкажи щось', source: 'text' });
+    await engine.command({ id: 'b', text: 'ще щось', source: 'text' });
+    const notices = events.filter((event) => event.type === 'notice');
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatchObject({ level: 'warn' });
+    expect(JSON.stringify(notices[0])).toContain('денного ліміту $1,00');
+  });
+
   it('«стоп» скасовує запит до моделі; розмова лишається як до ходу', async () => {
     const client = fakeClient([
       async (signal) =>

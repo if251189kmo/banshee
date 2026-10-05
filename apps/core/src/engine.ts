@@ -18,7 +18,7 @@ import {
   type TurnRoute,
   type TurnSource,
 } from '@banshee/shared';
-import { aiStatus, type AiStatus, type ApiProblem } from './ai/state.ts';
+import { aiStatus, limitWarning, type AiStatus, type ApiProblem } from './ai/state.ts';
 import type { Routine, RoutineStep } from './basic/builtins.ts';
 import { route as routeCommand } from './basic/router.ts';
 import { activeRoutines, ownerAliases, syncBuiltinRoutines } from './basic/store.ts';
@@ -103,6 +103,8 @@ export class Engine {
   private apiProblem: { problem: ApiProblem; at: number; until?: string } | null = null;
   private extra = { day: '', usd: 0 };
   private lastState: AiState | null = null;
+  /** Попередження про 80 % ліміту — раз на день і раз на місяць. */
+  private warned = { day: '', month: '' };
   private readonly confirmations = new Map<
     string,
     (answer: { approved: boolean; method: ConfirmMethod | null }) => void
@@ -163,6 +165,61 @@ export class Engine {
   /** Повідомляє desktop, якщо стан ШІ змінився: після зміни налаштувань чи ключа. */
   refreshState(): AiStatus {
     return this.publishState();
+  }
+
+  /**
+   * Перевірка ключа з налаштувань (`GET /v1/models`): успіх знімає «ключ не діє» й «немає зв'язку»;
+   * оплату й ліміт Console список моделей не перевіряє, тож вони лишаються до першого вдалого ходу.
+   */
+  keyChecked(failure: ApiFailureKind | null): void {
+    if (failure === null) {
+      if (this.apiProblem?.problem === 'key_invalid' || this.apiProblem?.problem === 'offline') {
+        this.apiProblem = null;
+      }
+    } else {
+      const problem = PROBLEM_OF[failure];
+      if (problem) this.apiProblem = { problem, at: this.now().getTime() };
+    }
+    this.publishState();
+  }
+
+  /** 80 % ліміту — сповіщення в треї (03-brain.md, «Ліміти витрат»), раз на день чи місяць. */
+  private warnLimits(): void {
+    const now = this.now();
+    const spending = this.spending();
+    const limits = this.settings()['ai.limits'];
+    const kind = limitWarning({
+      enabled: true,
+      hasKey: true,
+      spentTodayUsd: spending.todayUsd,
+      spentMonthUsd: spending.monthUsd,
+      limits,
+      extraTodayUsd: spending.extraTodayUsd,
+    });
+    if (!kind) return;
+    const day = localDay(now);
+    const period = kind === 'day' ? day : day.slice(0, 7);
+    if (this.warned[kind] === period) return;
+    this.warned = { ...this.warned, [kind]: period };
+    const usd = (value: number): string => `$${value.toFixed(2).replace('.', ',')}`;
+    this.deps.emit({
+      type: 'notice',
+      level: 'warn',
+      text:
+        kind === 'day'
+          ? `Витрачено ${usd(spending.todayUsd)} з денного ліміту ${usd(limits.dayUsd + spending.extraTodayUsd)}.`
+          : `Витрачено ${usd(spending.monthUsd)} з місячного ліміту ${usd(limits.monthUsd)}.`,
+    });
+  }
+
+  /** Витрати для картки «Стан ШІ»: сьогодні, за місяць і дозволене кліком «ще $1». */
+  spending(): { todayUsd: number; monthUsd: number; extraTodayUsd: number } {
+    const now = this.now();
+    return {
+      todayUsd: this.spentSince(new Date(now.getFullYear(), now.getMonth(), now.getDate())),
+      monthUsd: this.spentSince(new Date(now.getFullYear(), now.getMonth(), 1)),
+      extraTodayUsd: this.extra.day === localDay(now) ? this.extra.usd : 0,
+    };
   }
 
   /** Повідомляє desktop, якщо стан ШІ змінився. */
@@ -268,12 +325,17 @@ export class Engine {
     };
   }
 
-  private journal(turnRow: number | null, source: string, record: ActionRecord): number {
+  private journal(
+    turnRow: number | null,
+    source: string,
+    record: ActionRecord,
+    summary: string | null = null,
+  ): number {
     return Number(
       this.deps.db
         .prepare(
-          `INSERT INTO actions (turn_id, tool, args_json, tier, source, confirmed_by, status, result, undo_json, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO actions (turn_id, tool, args_json, tier, source, confirmed_by, status, result, undo_json, summary, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           turnRow,
@@ -285,6 +347,7 @@ export class Engine {
           record.status,
           record.result,
           record.undo === undefined ? null : JSON.stringify(record.undo),
+          summary,
           this.now().toISOString(),
         ).lastInsertRowid,
     );
@@ -456,14 +519,19 @@ export class Engine {
           armDelaySec: confirmation.armDelaySec,
         });
         if (!answer.approved) {
-          this.journal(turnRow, 'routine', {
-            tool: step.tool,
-            args: step.args,
-            level: assessment.level,
-            confirmedBy: answer.method,
-            status: 'denied',
-            result: '',
-          });
+          this.journal(
+            turnRow,
+            'routine',
+            {
+              tool: step.tool,
+              args: step.args,
+              level: assessment.level,
+              confirmedBy: answer.method,
+              status: 'denied',
+              result: '',
+            },
+            assessment.summary,
+          );
           this.say(command.id, FAILURE_PHRASES.denied);
           return 'cancelled';
         }
@@ -473,15 +541,20 @@ export class Engine {
       this.deps.emit({ type: 'turn.state', turnId: command.id, state: 'acting' });
       const outcome = await this.deps.tools.run(step.tool, step.args);
       running.acting = false;
-      const actionId = this.journal(turnRow, 'routine', {
-        tool: step.tool,
-        args: step.args,
-        level: assessment.level,
-        confirmedBy,
-        status: outcome.ok ? 'done' : 'failed',
-        result: outcome.content.slice(0, 4000),
-        ...(outcome.undo === undefined ? {} : { undo: outcome.undo }),
-      });
+      const actionId = this.journal(
+        turnRow,
+        'routine',
+        {
+          tool: step.tool,
+          args: step.args,
+          level: assessment.level,
+          confirmedBy,
+          status: outcome.ok ? 'done' : 'failed',
+          result: outcome.content.slice(0, 4000),
+          ...(outcome.undo === undefined ? {} : { undo: outcome.undo }),
+        },
+        assessment.summary,
+      );
       this.deps.emit({
         type: 'action',
         turnId: command.id,
@@ -604,6 +677,7 @@ export class Engine {
                 call.latencyMs,
                 this.now().toISOString(),
               );
+            this.warnLimits();
           },
           actionStarted: () => {
             running.acting = true;
@@ -611,7 +685,7 @@ export class Engine {
           },
           action: (record, summary) => {
             running.acting = false;
-            const actionId = this.journal(turnRow, command.source, record);
+            const actionId = this.journal(turnRow, command.source, record, summary);
             this.deps.emit({
               type: 'action',
               turnId: command.id,

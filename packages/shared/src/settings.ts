@@ -153,6 +153,14 @@ export const SETTINGS = {
       }),
     defaultValue: { overlay: 'Ctrl+Shift+B', micPause: 'Ctrl+Shift+M', stop: 'Ctrl+Shift+X' },
   }),
+  'general.setupDone': setting({
+    scope: 'device',
+    label: 'Майстер першого запуску пройдено',
+    description: 'Після встановлення Banshee один раз показує майстер: ключ Claude і клавіші.',
+    schema: z.boolean(),
+    defaultValue: false,
+    hidden: true,
+  }),
 
   'voice.wakeSensitivity': setting({
     scope: 'user',

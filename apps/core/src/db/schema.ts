@@ -135,6 +135,11 @@ CREATE UNIQUE INDEX aliases_phrase ON aliases (kind, phrase) WHERE deleted = 0;
 INSERT INTO meta (key, value) VALUES ('settings_version', '1');
 `,
   },
+  {
+    version: 2,
+    name: 'крок 1.7: опис дії для журналу — те саме речення, що на картці',
+    sql: `ALTER TABLE actions ADD COLUMN summary TEXT;`,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;

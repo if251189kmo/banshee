@@ -1,7 +1,7 @@
 // Стан сторінки з повідомлень core (.claude/logic/01-architecture.md, «Протокол core ↔ desktop»):
 // з'єднання, стан ШІ, ходи з відповідями й діями, відкриті підтвердження. Чистий редуктор —
 // перевіряється без браузера.
-import type { AiState, CoreMessage } from '@banshee/shared';
+import type { AiState, CoreMessage, TurnState } from '@banshee/shared';
 
 type ActionMessage = Extract<CoreMessage, { type: 'action' }>;
 type TurnDone = Extract<CoreMessage, { type: 'turn.done' }>;
@@ -14,6 +14,8 @@ export interface TurnView {
   readonly say: string;
   readonly actions: readonly ActionMessage[];
   readonly done: TurnDone | null;
+  /** Думає, виконує дію, говорить — для кружка стану в оверлеї. */
+  readonly state: TurnState | null;
 }
 
 export interface CoreState {
@@ -50,7 +52,7 @@ function updateTurn(
 ): readonly TurnView[] {
   const existing = turns.find((turn) => turn.id === id);
   if (existing) return turns.map((turn) => (turn.id === id ? change(turn) : turn));
-  const created = change({ id, text: null, say: '', actions: [], done: null });
+  const created = change({ id, text: null, say: '', actions: [], done: null, state: 'thinking' });
   return [...turns, created].slice(-MAX_TURNS);
 }
 
@@ -89,10 +91,22 @@ export function reduceCore(state: CoreState, event: CoreEvent): CoreState {
           actions: [...turn.actions.filter((a) => a.actionId !== message.actionId), message],
         })),
       };
+    case 'turn.state':
+      return {
+        ...state,
+        turns: updateTurn(state.turns, message.turnId, (turn) => ({
+          ...turn,
+          state: message.state,
+        })),
+      };
     case 'turn.done':
       return {
         ...state,
-        turns: updateTurn(state.turns, message.turnId, (turn) => ({ ...turn, done: message })),
+        turns: updateTurn(state.turns, message.turnId, (turn) => ({
+          ...turn,
+          done: message,
+          state: 'done',
+        })),
       };
     case 'confirm.request':
       return { ...state, confirmations: [...state.confirmations, message] };
@@ -104,7 +118,6 @@ export function reduceCore(state: CoreState, event: CoreEvent): CoreState {
     case 'notice':
       return { ...state, notices: [...state.notices, message.text].slice(-5) };
     case 'reply':
-    case 'turn.state':
     case 'settings.changed':
       return state;
   }

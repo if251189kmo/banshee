@@ -8,3 +8,4 @@ export * from './protocol.ts';
 export * from './settings.ts';
 export * from './tools.ts';
 export * from './turns.ts';
+export * from './views.ts';

@@ -1,39 +1,61 @@
 // Головний процес Banshee (.claude/logic/01-architecture.md, «Процеси»): один екземпляр, значок у
-// треї, core в utilityProcess під наглядом, вікна з портами MessagePort до core — без мережевих
-// портів. `--self-check` — перевірка програми: старт, вікно, перезапуск core, другий екземпляр.
+// треї, core в utilityProcess під наглядом, оверлей і центр керування з портами MessagePort до
+// core — без мережевих портів. Гарячі клавіші, тема й автозапуск — з налаштувань core.
+// `--self-check` — перевірка програми: старт, вікно, перезапуск core, другий екземпляр.
+import { release } from 'node:os';
 import { join } from 'node:path';
 import {
   parseControlFromCore,
   parseCoreMessage,
   PROTOCOL_VERSION,
+  ulid,
   type AiState,
   type ControlToCore,
+  type CoreMessage,
   type DesktopMessage,
+  type SettingKey,
+  type Settings,
 } from '@banshee/shared';
 import { createLog } from '@banshee/shared/log';
 import {
   app,
   BrowserWindow,
+  globalShortcut,
+  ipcMain,
   Menu,
   MessageChannelMain,
   nativeImage,
   nativeTheme,
   Notification,
+  screen,
   session,
+  shell,
   Tray,
   utilityProcess,
+  type MenuItemConstructorOptions,
   type MessagePortMain,
   type NativeImage,
   type UtilityProcess,
 } from 'electron';
 import corePath from '../core/core.ts?modulePath';
 import pcPath from '../pc/pc.ts?modulePath';
+import { EXTERNAL_LINKS, uiToMain, type Section, type UiToWindow } from '../shared/ui.ts';
 import { bansheePaths, selfCheckPaths } from './paths.ts';
+import {
+  OVERLAY_MIN_HEIGHT,
+  OVERLAY_WIDTH,
+  overlayBounds,
+  supportsMica,
+  toAccelerator,
+} from './placement.ts';
 import { runSelfCheck } from './self-check.ts';
+import { runShots } from './shots.ts';
 import { MAX_CRASHES, Supervisor, type ChildHandle } from './supervisor.ts';
 import { trayView, type TrayIcon } from './tray-view.ts';
 
-const SELF_CHECK = process.argv.includes('--self-check');
+/** Знімки інтерфейсу для перевірки вигляду — теж в окремій теці й без ключа. */
+const UI_SHOTS = process.argv.includes('--ui-shots');
+const SELF_CHECK = process.argv.includes('--self-check') || UI_SHOTS;
 const launchedAt = performance.now();
 
 const basePaths = bansheePaths({
@@ -52,18 +74,26 @@ app.setAppUserModelId('ua.banshee.desktop');
 const log = createLog({ dir: paths.logs, source: 'desktop' });
 const resource = (name: string): string => join(app.getAppPath(), 'resources', name);
 
+type WindowKind = 'center' | 'overlay';
+
 let tray: Tray | null = null;
 let icons: Record<TrayIcon, NativeImage> | null = null;
 let center: BrowserWindow | null = null;
+let overlay: BrowserWindow | null = null;
+let overlayHeight = OVERLAY_MIN_HEIGHT;
+const windows = new Map<BrowserWindow, WindowKind>();
 let core: UtilityProcess | null = null;
 let mainPort: MessagePortMain | null = null;
 let aiState: AiState | null = null;
+let settings: Settings | null = null;
+let wizardOffered = false;
 let quitting = false;
 let secondInstances = 0;
 const coreReadyAt: number[] = [];
 const coreExitAt: number[] = [];
 const pcPids: (number | null)[] = [];
 let turnsDone = 0;
+const replies = new Map<string, (reply: Extract<CoreMessage, { type: 'reply' }>) => void>();
 
 const supervisor = new Supervisor({
   spawn: spawnCore,
@@ -88,6 +118,26 @@ function send(message: DesktopMessage): void {
   mainPort?.postMessage(message);
 }
 
+/** Запит головного процесу до core з відповіддю `reply`. */
+function ask(message: Extract<DesktopMessage, { id: string }>): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      replies.delete(message.id);
+      reject(new Error('core не відповів'));
+    }, 15_000);
+    replies.set(message.id, (reply) => {
+      clearTimeout(timer);
+      if (reply.ok) resolve(reply.result);
+      else reject(new Error(reply.error ?? 'помилка core'));
+    });
+    send(message);
+  });
+}
+
+function setSetting(key: SettingKey, value: unknown): void {
+  send({ type: 'settings.set', id: ulid(), key, value, source: 'ui' });
+}
+
 function spawnCore(): ChildHandle {
   const child = utilityProcess.fork(corePath, [], { serviceName: 'Banshee core', stdio: 'pipe' });
   const spawnedAt = performance.now();
@@ -102,6 +152,7 @@ function spawnCore(): ChildHandle {
 
   const channel = new MessageChannelMain();
   mainPort?.close();
+  replies.clear();
   mainPort = channel.port2;
   channel.port2.on('message', (event) => {
     onCoreMessage(event.data);
@@ -121,9 +172,11 @@ function spawnCore(): ChildHandle {
     [channel.port1],
   );
   send({ type: 'hello', version: PROTOCOL_VERSION, appVersion: app.getVersion() });
-  if (center && !center.webContents.isLoading()) connectWindow(center);
+  for (const win of windows.keys()) {
+    if (!win.webContents.isLoading()) connectWindow(win);
+  }
+  // Жорстко, як справжнє падіння: м'яке kill() Electron інколи чекає до 2 с.
   return {
-    // Жорстко, як справжнє падіння: м'яке kill() Electron інколи чекає до 2 с.
     kill: () => {
       if (child.pid === undefined) child.kill();
       else process.kill(child.pid);
@@ -154,6 +207,68 @@ function onControl(child: UtilityProcess, data: unknown, spawnedAt: number): voi
   aiState = message.aiState;
   supervisor.ready();
   refreshTray();
+  void loadSettings();
+}
+
+async function loadSettings(): Promise<void> {
+  try {
+    settings = (await ask({ type: 'settings.get', id: ulid() })) as Settings;
+  } catch (error) {
+    log.warn('settings.load', { error: error instanceof Error ? error.message : String(error) });
+    return;
+  }
+  for (const key of Object.keys(settings) as SettingKey[]) applySetting(key);
+  refreshTray();
+}
+
+/** Налаштування, що діють у головному процесі: тема, клавіші, автозапуск, майстер. */
+function applySetting(key: SettingKey): void {
+  if (!settings) return;
+  switch (key) {
+    case 'general.theme':
+      nativeTheme.themeSource = settings['general.theme'];
+      return;
+    case 'general.hotkeys':
+      registerShortcuts();
+      return;
+    case 'general.autostart':
+      // Лише зібрана програма: у розробці автозапуск записав би electron.exe.
+      if (app.isPackaged && !SELF_CHECK) {
+        app.setLoginItemSettings({ openAtLogin: settings['general.autostart'] });
+      }
+      return;
+    case 'general.setupDone':
+      if (!settings['general.setupDone'] && !wizardOffered && !SELF_CHECK) {
+        wizardOffered = true;
+        showCenter('wizard');
+      }
+      return;
+    default:
+      return;
+  }
+}
+
+/** Оверлей і «стоп». Пауза мікрофона — з етапу 2: до того її поєднання в інших програмах не чіпаємо. */
+function registerShortcuts(): void {
+  if (!settings || SELF_CHECK) return;
+  globalShortcut.unregisterAll();
+  const hotkeys = settings['general.hotkeys'];
+  const busy: string[] = [];
+  const bind = (hotkey: string, action: () => void) => {
+    try {
+      if (!globalShortcut.register(toAccelerator(hotkey), action)) busy.push(hotkey);
+    } catch {
+      busy.push(hotkey);
+    }
+  };
+  bind(hotkeys.overlay, toggleOverlay);
+  bind(hotkeys.stop, () => {
+    send({ type: 'stop' });
+  });
+  if (busy.length > 0) {
+    log.warn('hotkeys.busy', { keys: busy.join(', ') });
+    notify(`Гаряча клавіша ${busy.join(', ')} зайнята іншою програмою — зміни її в налаштуваннях.`);
+  }
 }
 
 function onCoreMessage(data: unknown): void {
@@ -164,6 +279,12 @@ function onCoreMessage(data: unknown): void {
   }
   const message = parsed.message;
   switch (message.type) {
+    case 'reply': {
+      const resolve = replies.get(message.id);
+      replies.delete(message.id);
+      resolve?.(message);
+      return;
+    }
     case 'ready':
       aiState = message.aiState;
       refreshTray();
@@ -171,6 +292,17 @@ function onCoreMessage(data: unknown): void {
     case 'ai.state':
       aiState = message.state;
       refreshTray();
+      return;
+    case 'settings.changed':
+      if (settings) {
+        settings = { ...settings, [message.key]: message.value };
+        applySetting(message.key as SettingKey);
+        refreshTray();
+      }
+      return;
+    case 'confirm.request':
+      // Картку підтвердження видно в оверлеї, якщо центр керування не перед очима.
+      if (!SELF_CHECK && !overlay?.isVisible() && !center?.isFocused()) showOverlay();
       return;
     case 'notice':
       notify(message.text);
@@ -185,60 +317,162 @@ function onCoreMessage(data: unknown): void {
 
 /** Новий порт до core для вікна: після завантаження сторінки й після перезапуску core. */
 function connectWindow(win: BrowserWindow): void {
-  if (!core || win.isDestroyed()) return;
+  const kind = windows.get(win);
+  if (!core || !kind || win.isDestroyed()) return;
   const channel = new MessageChannelMain();
-  post(core, { type: 'core.attach', client: 'center' }, [channel.port1]);
+  post(core, { type: 'core.attach', client: kind }, [channel.port1]);
   win.webContents.postMessage('core:port', null, [channel.port2]);
 }
 
-function harden(win: BrowserWindow): void {
+function toWindow(win: BrowserWindow, command: UiToWindow): void {
+  if (!win.isDestroyed()) win.webContents.send('ui', command);
+}
+
+const WEB_PREFERENCES = {
+  preload: join(import.meta.dirname, '../preload/index.cjs'),
+  sandbox: true,
+  contextIsolation: true,
+  nodeIntegration: false,
+  spellcheck: false,
+} as const;
+
+function createWindow(
+  kind: WindowKind,
+  options: Electron.BrowserWindowConstructorOptions,
+  hash: string,
+): BrowserWindow {
+  const win = new BrowserWindow({ ...options, webPreferences: WEB_PREFERENCES });
+  windows.set(win, kind);
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event) => {
     event.preventDefault();
-  });
-}
-
-function showCenter(): BrowserWindow {
-  if (center && !center.isDestroyed()) {
-    if (center.isMinimized()) center.restore();
-    if (!SELF_CHECK) center.show();
-    center.focus();
-    return center;
-  }
-  const win = new BrowserWindow({
-    width: 960,
-    height: 640,
-    minWidth: 560,
-    minHeight: 400,
-    show: false,
-    title: 'Banshee',
-    icon: resource('icon.ico'),
-    autoHideMenuBar: true,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#141a19' : '#f1f4f3',
-    webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.cjs'),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-      spellcheck: false,
-    },
-  });
-  center = win;
-  harden(win);
-  win.once('ready-to-show', () => {
-    if (!SELF_CHECK) win.show();
   });
   win.webContents.on('did-finish-load', () => {
     connectWindow(win);
   });
   win.on('closed', () => {
-    if (center === win) center = null;
+    windows.delete(win);
   });
+  const page = kind === 'overlay' ? 'overlay.html' : 'index.html';
   const devUrl = process.env['ELECTRON_RENDERER_URL'];
-  if (!app.isPackaged && devUrl) void win.loadURL(devUrl);
-  else void win.loadFile(join(import.meta.dirname, '../renderer/index.html'));
+  if (!app.isPackaged && devUrl) void win.loadURL(`${devUrl}/${page}${hash ? `#${hash}` : ''}`);
+  else {
+    void win.loadFile(join(import.meta.dirname, '../renderer', page), hash ? { hash } : {});
+  }
   return win;
 }
+
+const background = (): string => (nativeTheme.shouldUseDarkColors ? '#141a19' : '#f1f4f3');
+
+function showCenter(section?: Section, anchor?: string): BrowserWindow {
+  if (center && !center.isDestroyed()) {
+    if (center.isMinimized()) center.restore();
+    if (!SELF_CHECK) center.show();
+    center.focus();
+    if (section)
+      toWindow(center, { type: 'center.section', section, ...(anchor ? { anchor } : {}) });
+    return center;
+  }
+  const hash = section ? `${section}${anchor ? `/${anchor}` : ''}` : '';
+  const win = createWindow(
+    'center',
+    {
+      width: 1040,
+      height: 720,
+      minWidth: 640,
+      minHeight: 480,
+      show: false,
+      title: 'Banshee',
+      icon: resource('icon.ico'),
+      autoHideMenuBar: true,
+      backgroundColor: background(),
+    },
+    hash,
+  );
+  center = win;
+  win.once('ready-to-show', () => {
+    if (!SELF_CHECK) win.show();
+  });
+  win.on('closed', () => {
+    if (center === win) center = null;
+  });
+  return win;
+}
+
+function ensureOverlay(): BrowserWindow {
+  if (overlay && !overlay.isDestroyed()) return overlay;
+  const mica = supportsMica(release());
+  const win = createWindow(
+    'overlay',
+    {
+      width: OVERLAY_WIDTH,
+      height: OVERLAY_MIN_HEIGHT,
+      show: false,
+      frame: false,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      title: 'Banshee',
+      ...(mica ? { backgroundMaterial: 'mica' as const } : { backgroundColor: background() }),
+    },
+    mica ? 'mica' : '',
+  );
+  overlay = win;
+  win.on('closed', () => {
+    if (overlay === win) overlay = null;
+  });
+  return win;
+}
+
+/** Оверлей — на моніторі з курсором: активне вікно іншої програми Electron не бачить. */
+function showOverlay(): void {
+  const win = ensureOverlay();
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  win.setBounds(overlayBounds(display.workArea, overlayHeight));
+  win.show();
+  win.focus();
+  toWindow(win, { type: 'overlay.shown' });
+}
+
+function toggleOverlay(): void {
+  if (overlay?.isVisible() && overlay.isFocused()) overlay.hide();
+  else showOverlay();
+}
+
+function resizeOverlay(height: number): void {
+  overlayHeight = height;
+  if (!overlay?.isVisible()) return;
+  const display = screen.getDisplayMatching(overlay.getBounds());
+  overlay.setBounds(overlayBounds(display.workArea, height));
+}
+
+ipcMain.on('ui', (event, data: unknown) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || !windows.has(win)) return;
+  const parsed = uiToMain.safeParse(data);
+  if (!parsed.success) {
+    log.warn('ui.invalid', { kind: windows.get(win) ?? '?' });
+    return;
+  }
+  const command = parsed.data;
+  switch (command.type) {
+    case 'overlay.hide':
+      overlay?.hide();
+      return;
+    case 'overlay.resize':
+      resizeOverlay(command.height);
+      return;
+    case 'center.open':
+      showCenter(command.section, command.anchor);
+      return;
+    case 'external.open':
+      void shell.openExternal(EXTERNAL_LINKS[command.link]);
+      return;
+  }
+});
 
 function notify(text: string): void {
   log.info('notice', { text });
@@ -251,28 +485,40 @@ function refreshTray(): void {
   const view = trayView(supervisor.state, aiState);
   tray.setImage(icons[view.icon]);
   tray.setToolTip(view.tooltip);
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: 'Центр керування', click: () => showCenter() },
-      ...(view.canRestart
-        ? [
-            {
-              label: 'Перезапустити core',
-              click: () => {
-                supervisor.start();
-              },
-            },
-          ]
-        : []),
-      { type: 'separator' },
-      {
-        label: 'Вийти',
-        click: () => {
-          app.quit();
-        },
+  const items: MenuItemConstructorOptions[] = [
+    {
+      label: `Оверлей (${settings?.['general.hotkeys'].overlay ?? 'Ctrl+Shift+B'})`,
+      click: showOverlay,
+    },
+    {
+      label: 'Використовувати ШІ',
+      type: 'checkbox',
+      checked: settings?.['ai.enabled'] ?? true,
+      enabled: settings !== null && supervisor.state === 'running',
+      click: (item) => {
+        setSetting('ai.enabled', item.checked);
       },
-    ]),
-  );
+    },
+    { label: 'Центр керування', click: () => showCenter() },
+    ...(view.canRestart
+      ? [
+          {
+            label: 'Перезапустити core',
+            click: () => {
+              supervisor.start();
+            },
+          },
+        ]
+      : []),
+    { type: 'separator' },
+    {
+      label: 'Вийти',
+      click: () => {
+        app.quit();
+      },
+    },
+  ];
+  tray.setContextMenu(Menu.buildFromTemplate(items));
 }
 
 function start(): void {
@@ -294,8 +540,29 @@ function start(): void {
   });
   refreshTray();
   supervisor.start();
+  if (!SELF_CHECK) ensureOverlay();
   log.info('desktop.tray', { ms: Math.round(performance.now() - launchedAt) });
-  if (SELF_CHECK) {
+  if (UI_SHOTS) {
+    void runShots(
+      {
+        coreReadyAt,
+        openCenter: () => showCenter(),
+        openOverlay: () => {
+          showOverlay();
+          return ensureOverlay();
+        },
+        command: (text) => {
+          send({ type: 'command', id: ulid(), text, source: 'text' });
+        },
+        log,
+      },
+      join(basePaths.root, 'ui-shots'),
+    )
+      .catch((error: unknown) => {
+        log.error('ui-shots', { error: error instanceof Error ? error.message : String(error) });
+      })
+      .finally(() => { app.quit(); });
+  } else if (SELF_CHECK) {
     void runSelfCheck(
       {
         launchedAt,
@@ -307,7 +574,7 @@ function start(): void {
         crashCore: () => {
           supervisor.crash();
         },
-        openCenter: showCenter,
+        openCenter: () => showCenter(),
         command: (text) => {
           send({ type: 'command', id: `check-${String(Date.now())}`, text, source: 'text' });
         },
@@ -331,6 +598,9 @@ if (!app.requestSingleInstanceLock()) {
   });
   // Banshee живе в треї: закриті вікна не завершують програму.
   app.on('window-all-closed', () => undefined);
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+  });
   app.on('before-quit', (event) => {
     if (quitting) return;
     event.preventDefault();

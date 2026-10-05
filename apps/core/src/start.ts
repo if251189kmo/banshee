@@ -4,10 +4,10 @@
 import { createLog, type Log } from '@banshee/shared/log';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { anthropicClient, type ModelClient } from './brain/model-client.ts';
-import { readClaudeKey } from './credentials.ts';
 import { openDatabase, type Db } from './db/database.ts';
 import { Engine } from './engine.ts';
 import { CoreHost } from './host.ts';
+import { credentialStore, KeyService, modelsProbe, type KeyProbe, type KeyStore } from './keys.ts';
 import { connectPc, pcToolRunner, type PcLaunch, type PcSettingsSource } from './pc-client.ts';
 import { readSettings } from './settings/store.ts';
 
@@ -18,8 +18,10 @@ export interface StartOptions {
   readonly logsDir: string;
   /** Як запустити mcp/pc. */
   readonly pc: PcLaunch;
-  /** Ключ Claude з Credential Manager; у тестах — підміна. */
-  readonly readKey?: () => Promise<string | undefined>;
+  /** Ключ Claude: Credential Manager; у тестах і перевірці програми — підміна. */
+  readonly keyStore?: KeyStore;
+  /** Перевірка ключа списком моделей; у тестах — підміна. */
+  readonly keyProbe?: KeyProbe;
   readonly modelClient?: (key: string) => ModelClient;
   readonly connect?: (launch: PcLaunch) => Promise<Client>;
   readonly log?: Log;
@@ -61,10 +63,12 @@ export async function startCore(options: StartOptions): Promise<StartedCore> {
   const problems = readSettings(db).problems;
   if (problems.length > 0) log.warn('settings.problems', { count: problems.length });
 
+  const makeClient = options.modelClient ?? anthropicClient;
+  const keyStore = options.keyStore ?? credentialStore;
   let client: ModelClient | null = null;
   try {
-    const key = await (options.readKey ?? readClaudeKey)();
-    client = key ? (options.modelClient ?? anthropicClient)(key) : null;
+    const key = await keyStore.read();
+    client = key ? makeClient(key) : null;
   } catch (error) {
     log.warn('key.read', { error: errorText(error) });
   }
@@ -80,8 +84,30 @@ export async function startCore(options: StartOptions): Promise<StartedCore> {
   const pcTools = await tools.connected();
   if (!pcTools) log.error('pc.connect');
 
-  const host = new CoreHost({ db, deviceId, log, ...(options.now ? { now: options.now } : {}) });
-  const engine = new Engine({
+  let engine: Engine | null = null;
+  const keys = new KeyService(
+    {
+      changed: (key) => {
+        client = key ? makeClient(key) : null;
+        log.info('key.changed', { present: key !== null });
+        engine?.refreshState();
+      },
+      checked: (failure) => {
+        log.info('key.checked', { failure });
+        engine?.keyChecked(failure);
+      },
+    },
+    keyStore,
+    options.keyProbe ?? modelsProbe,
+  );
+  const host = new CoreHost({
+    db,
+    deviceId,
+    keys,
+    log,
+    ...(options.now ? { now: options.now } : {}),
+  });
+  engine = new Engine({
     db,
     deviceId,
     client: () => client,
@@ -90,15 +116,16 @@ export async function startCore(options: StartOptions): Promise<StartedCore> {
     ...(options.now ? { now: options.now } : {}),
   });
   host.start(engine);
+  const started = engine;
   return {
     host,
-    engine,
+    engine: started,
     db,
     log,
     pcTools,
     pcPid: tools.pid(),
     async close() {
-      engine.stop();
+      started.stop();
       host.close();
       await tools.close();
       db.close();

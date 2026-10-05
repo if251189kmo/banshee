@@ -37,7 +37,8 @@
     "kws": "node prototypes/kws/run.ts",
     "idle": "node prototypes/idle/run.ts",
     "desktop:check": "node scripts/desktop.ts check",
-    "desktop:icons": "node apps/desktop/scripts/icons.ts"
+    "desktop:icons": "node apps/desktop/scripts/icons.ts",
+    "desktop:shots": "node scripts/desktop.ts shots"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

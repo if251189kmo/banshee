@@ -6,6 +6,11 @@ import { parseControlToCore, type ControlFromCore, type CoreInit } from '@banshe
 import type { MessagePortMain } from 'electron';
 
 const startedAt = performance.now();
+const NO_KEY = {
+  read: () => Promise.resolve(undefined),
+  save: () => Promise.reject(new Error('Перевірка програми не зберігає ключ')),
+  remove: () => Promise.resolve(false),
+};
 let core: StartedCore | null = null;
 const waiting: { port: MessagePortMain; client: string }[] = [];
 
@@ -45,7 +50,8 @@ async function init(message: CoreInit, port: MessagePortMain | undefined): Promi
         script: message.pcScript,
         env: { ELECTRON_RUN_AS_NODE: '1' },
       },
-      ...(message.ai ? {} : { readKey: () => Promise.resolve(undefined) }),
+      // Перевірка програми не читає ключ Claude: запитів до API немає.
+      ...(message.ai ? {} : { keyStore: NO_KEY }),
     });
   } catch (error) {
     post({ type: 'core.failed', error: errorText(error) });

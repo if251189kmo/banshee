@@ -2,7 +2,8 @@
 //   npm run dev            — electron-vite: програма з перезбиранням на льоту;
 //   npm run build          — збірка в apps/desktop/out;
 //   npm run desktop:check  — збірка й перевірка програми (`--self-check`): старт, вікно, команда без ШІ,
-//                            перезапуск core, другий екземпляр; результат — .data/desktop-check.json.
+//                            перезапуск core, другий екземпляр; результат — .data/desktop-check.json;
+//   npm run desktop:shots  — знімки центру керування й оверлею у світлій і темній темах: .data/ui-shots.
 // Термінал VS Code успадковує ELECTRON_RUN_AS_NODE=1, і тоді Electron працює як звичайний Node, тож
 // змінну прибрано з оточення дочірніх процесів.
 import { spawnSync } from 'node:child_process';
@@ -51,7 +52,12 @@ switch (mode) {
   case 'check':
     process.exit(check());
     break;
+  case 'shots': {
+    const built = run(process.execPath, [electronVite, 'build']);
+    process.exit(built === 0 ? run(electron, ['.', '--ui-shots']) : built);
+    break;
+  }
   default:
-    console.error('Використання: node scripts/desktop.ts dev | build | check');
+    console.error('Використання: node scripts/desktop.ts dev | build | check | shots');
     process.exit(2);
 }

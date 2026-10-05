@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./log": "./src/log.ts"
+    "./log": "./src/log.ts",
+    "./zod": "./src/zod.ts"
   },
   "dependencies": {
     "zod": "^4.6.5"
