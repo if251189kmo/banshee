@@ -263,3 +263,57 @@ describe('готові фрази', () => {
     expect(stored.has('Звук вимкнено.')).toBe(true);
   });
 });
+
+describe('стан ПК', () => {
+  it('дзвінок: відповідь не озвучується, хід завершується як звичайно', async () => {
+    const { service, spoken, command, flush } = harness([]);
+    service.pcState({ inCall: true, active: true });
+    const turnId = await command('Котра година?');
+    service.core({
+      type: 'say',
+      turnId,
+      text: 'Зараз 10:30.',
+      speak: true,
+      speech: 'Зараз десята тридцять.',
+      done: true,
+    });
+    await flush();
+    expect(spoken).toEqual([]);
+    service.core({
+      type: 'turn.done',
+      turnId,
+      route: 'routine',
+      outcome: 'success',
+      latencyMs: 40,
+      costUsd: 0,
+    });
+    expect(service.state).toBe('followUp');
+  });
+
+  it('«лише коли ПК активний»: неактивний ПК — слово не будить', async () => {
+    const { service, core, feed } = harness(['Котра година?']);
+    service.connected('0.1.0', 3);
+    const request = core.find((message) => message.type === 'settings.get');
+    if (!request) throw new Error('немає запиту налаштувань');
+    service.core({
+      type: 'reply',
+      id: request.id,
+      ok: true,
+      result: {
+        'voice.wakeSensitivity': 'medium',
+        'voice.endPauseSec': 0.5,
+        'voice.followUp': { enabled: true, seconds: 5 },
+        'voice.tts': { voice: 'tetiana', speed: 1 },
+        'voice.onlyWhenActive': true,
+        'security.voiceFilter': true,
+        'security.voiceStrictness': 'medium',
+      },
+    });
+    service.pcState({ inCall: false, active: false });
+    await feed([{ wake: 0.999 }]);
+    expect(service.state).toBe('idle');
+    service.pcState({ inCall: false, active: true });
+    await feed([...Array.from({ length: 20 }, () => ({})), { wake: 0.999 }]);
+    expect(service.state).toBe('listening');
+  });
+});

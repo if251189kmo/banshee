@@ -10,8 +10,9 @@ import { z } from './zod.ts';
 /**
  * Версія протоколу: core і desktop однієї збірки; різні версії — помилка встановлення.
  * 2 — крок 1.7: ключ Claude, картка «Стан ШІ», статистика й журнал.
+ * 3 — етап 2: `say.speech` — текст для озвучки, `pc.state` — заблокований ПК.
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 const id = z.string().min(1).max(64);
 
@@ -50,6 +51,8 @@ const settingsSet = z.object({
 /** «Ще $1 на сьогодні» — лише кліком (03-brain.md, «Ліміти витрат»). */
 const aiExtraDay = z.object({ type: z.literal('ai.extraDay'), id });
 const newEpisode = z.object({ type: z.literal('episode.new') });
+/** Стан ПК від головного процесу: заблоковано — лише дозволені дії (02-voice.md). */
+const pcState = z.object({ type: z.literal('pc.state'), locked: z.boolean() });
 /** «Скасуй»: actionId — кнопка на картці дії; без нього — остання дія, яку можна скасувати. */
 const undo = z.object({ type: z.literal('undo'), id, actionId: id.optional() });
 /**
@@ -87,6 +90,7 @@ export const desktopMessage = z.discriminatedUnion('type', [
   settingsSet,
   aiExtraDay,
   newEpisode,
+  pcState,
   undo,
   keyStatus,
   keySet,

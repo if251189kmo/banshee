@@ -45,6 +45,11 @@ const voiceListen = z.object({ type: z.literal('voice.listen') });
 /** Зупинити озвучку й забути команду: гаряча клавіша «стоп». */
 const voiceHush = z.object({ type: z.literal('voice.hush') });
 const voiceStop = z.object({ type: z.literal('voice.stop') });
+/**
+ * Стан ПК (02-voice.md, «Правила»): inCall — мікрофон тримає програма зв'язку, відповіді лише
+ * текстом; active — введення з клавіатури чи миші за останні 15 хв («Слухати, лише коли ПК активний»).
+ */
+const voicePc = z.object({ type: z.literal('voice.pc'), inCall: z.boolean(), active: z.boolean() });
 
 export const controlToVoice = z.discriminatedUnion('type', [
   voiceInit,
@@ -53,6 +58,7 @@ export const controlToVoice = z.discriminatedUnion('type', [
   voiceListen,
   voiceHush,
   voiceStop,
+  voicePc,
 ]);
 export type ControlToVoice = z.output<typeof controlToVoice>;
 export type VoiceInit = z.output<typeof voiceInit>;

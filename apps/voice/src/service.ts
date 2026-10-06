@@ -57,6 +57,7 @@ type VoiceSettings = Pick<
   | 'voice.endPauseSec'
   | 'voice.followUp'
   | 'voice.tts'
+  | 'voice.onlyWhenActive'
   | 'security.voiceFilter'
   | 'security.voiceStrictness'
 >;
@@ -66,6 +67,7 @@ const DEFAULT_SETTINGS: VoiceSettings = {
   'voice.endPauseSec': 0.5,
   'voice.followUp': { enabled: true, seconds: 5 },
   'voice.tts': { voice: 'tetiana', speed: 1 },
+  'voice.onlyWhenActive': false,
   'security.voiceFilter': true,
   'security.voiceStrictness': 'medium',
 };
@@ -109,6 +111,8 @@ export class VoiceService {
   private settings: VoiceSettings = DEFAULT_SETTINGS;
   private settingsRequest: string | null = null;
   private paused = false;
+  /** Дзвінок — відповіді лише текстом; неактивний ПК — слово не будить (якщо так налаштовано). */
+  private pc: { inCall: boolean; active: boolean } = { inCall: false, active: true };
   private backlog = 0;
   private chain: Promise<void> = Promise.resolve();
   private dropped = 0;
@@ -290,10 +294,26 @@ export class VoiceService {
       'voice.endPauseSec': settings['voice.endPauseSec'],
       'voice.followUp': settings['voice.followUp'],
       'voice.tts': settings['voice.tts'],
+      'voice.onlyWhenActive': settings['voice.onlyWhenActive'],
       'security.voiceFilter': settings['security.voiceFilter'],
       'security.voiceStrictness': settings['security.voiceStrictness'],
     };
-    this.listener.configure(listenerOptions(this.settings, this.deps.profile !== null));
+    this.reconfigure();
+  }
+
+  /** Слово не будить, якщо «Слухати, лише коли ПК активний» і ПК неактивний: поріг недосяжний. */
+  private reconfigure(): void {
+    const options = listenerOptions(this.settings, this.deps.profile !== null);
+    const asleep = this.settings['voice.onlyWhenActive'] && !this.pc.active;
+    this.listener.configure(asleep ? { ...options, wakeThreshold: 2 } : options);
+  }
+
+  /** Стан ПК від головного процесу: дзвінок і активність. */
+  pcState(state: { readonly inCall: boolean; readonly active: boolean }): void {
+    const changed = state.active !== this.pc.active;
+    this.pc = state;
+    if (state.inCall && this.speaking) this.silence();
+    if (changed) this.reconfigure();
   }
 
   private onListener(event: ListenerEvent): void {
@@ -346,6 +366,11 @@ export class VoiceService {
   }
 
   private speak(text: string): void {
+    // Дзвінок: озвучка заважала б розмові — відповідь лише текстом в оверлеї.
+    if (this.pc.inCall) {
+      this.afterSpeech();
+      return;
+    }
     this.queue.push(...splitSentences(text));
     this.publish();
     void this.drain();

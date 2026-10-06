@@ -34,6 +34,7 @@ export interface HostEngine {
   confirmReply(requestId: string, approved: boolean, method: ConfirmMethod): void;
   allowExtraToday(): void;
   newEpisode(): void;
+  setPcState(state: { readonly locked: boolean }): void;
   undo(actionId?: number): Promise<string>;
   spending(): { todayUsd: number; monthUsd: number; extraTodayUsd: number };
 }
@@ -166,6 +167,9 @@ export class CoreHost {
         return;
       case 'episode.new':
         engine.newEpisode();
+        return;
+      case 'pc.state':
+        engine.setPcState({ locked: message.locked });
         return;
       case 'undo': {
         const actionId = message.actionId === undefined ? undefined : Number(message.actionId);

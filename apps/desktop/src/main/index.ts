@@ -60,6 +60,7 @@ import { runSelfCheck } from './self-check.ts';
 import { runShots } from './shots.ts';
 import { MAX_CRASHES, Supervisor, type ChildHandle } from './supervisor.ts';
 import { trayView, type TrayIcon } from './tray-view.ts';
+import { inCall, readMicUsers } from './calls.ts';
 import { VoiceHost, type VoiceHostState } from './voice.ts';
 import {
   MODELS_TOTAL_BYTES,
@@ -113,6 +114,13 @@ const pcPids: (number | null)[] = [];
 let turnsDone = 0;
 let lastDiagnostics: string | null = null;
 let audioWindow: BrowserWindow | null = null;
+/** Заблоковано ПК — core виконує лише дозволені дії (02-voice.md, «Заблокований ПК»). */
+let pcLocked = false;
+/** Дзвінок і активність ПК для голосу; опитування — лише коли голос увімкнено. */
+let pcVoice = { inCall: false, active: true };
+let pcTimer: ReturnType<typeof setInterval> | null = null;
+/** «Активний» — введення з клавіатури чи миші за останні 15 хв. */
+const ACTIVE_IDLE_SEC = 15 * 60;
 let voiceSelfTest: Extract<ControlFromVoice, { type: 'voice.selfTest' }> | null = null;
 let voiceReadyAt: number | null = null;
 /** Остання самоперевірка процесу voice: модель слова й профіль голосу. */
@@ -226,6 +234,7 @@ function spawnCore(): ChildHandle {
     [channel.port1],
   );
   send({ type: 'hello', version: PROTOCOL_VERSION, appVersion: app.getVersion() });
+  send({ type: 'pc.state', locked: pcLocked });
   for (const win of windows.keys()) {
     if (!win.webContents.isLoading()) connectWindow(win);
   }
@@ -687,6 +696,32 @@ function applyVoice(): void {
       speakers: settings['voice.speakers'],
     });
   else void voice.disable();
+  watchPc(settings['voice.enabled'] && !SELF_CHECK);
+}
+
+/** Раз на 5 с: чи тримає мікрофон програма зв'язку й чи було введення за 15 хв — для голосу. */
+function watchPc(on: boolean): void {
+  if (!on) {
+    if (pcTimer) clearInterval(pcTimer);
+    pcTimer = null;
+    return;
+  }
+  if (pcTimer) return;
+  const check = async (): Promise<void> => {
+    const next = {
+      inCall: inCall(await readMicUsers()),
+      active: powerMonitor.getSystemIdleTime() < ACTIVE_IDLE_SEC,
+    };
+    if (next.inCall === pcVoice.inCall && next.active === pcVoice.active) return;
+    if (next.inCall !== pcVoice.inCall) log.info('pc.call', { inCall: next.inCall });
+    pcVoice = next;
+    voice.setPc(next);
+    refreshTray();
+  };
+  pcTimer = setInterval(() => {
+    void check();
+  }, 5000);
+  void check();
 }
 
 function toggleMicPause(): void {
@@ -788,7 +823,10 @@ function refreshTray(): void {
   if (!tray || !icons) return;
   const view = trayView(supervisor.state, aiState);
   tray.setImage(icons[view.icon]);
-  const voiceText = VOICE_TEXT[voice.state];
+  const voiceText =
+    voice.state !== 'off' && pcVoice.inCall
+      ? `${VOICE_TEXT[voice.state]}, дзвінок — відповіді текстом`
+      : VOICE_TEXT[voice.state];
   tray.setToolTip(voiceText ? `${view.tooltip} · ${voiceText}` : view.tooltip);
   const items: MenuItemConstructorOptions[] = [
     {
@@ -876,6 +914,19 @@ function start(): void {
   powerMonitor.on('resume', () => {
     log.info('power.resume');
     voice.reopen();
+  });
+  // Заблокований ПК: core виконує лише час і дату, музику й гучність («Дії на заблокованому ПК»).
+  pcLocked = powerMonitor.getSystemIdleState(60) === 'locked';
+  const lockChanged = (locked: boolean) => {
+    pcLocked = locked;
+    log.info('pc.locked', { locked });
+    send({ type: 'pc.state', locked });
+  };
+  powerMonitor.on('lock-screen', () => {
+    lockChanged(true);
+  });
+  powerMonitor.on('unlock-screen', () => {
+    lockChanged(false);
   });
   log.info('desktop.tray', { ms: Math.round(performance.now() - launchedAt) });
   if (UI_SHOTS) {

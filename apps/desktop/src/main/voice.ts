@@ -55,6 +55,7 @@ export class VoiceHost {
   private current: VoiceHostState = 'off';
   private speaking = false;
   private failure: string | null = null;
+  private pc: { inCall: boolean; active: boolean } = { inCall: false, active: true };
 
   constructor(deps: VoiceHostDeps) {
     this.deps = deps;
@@ -134,6 +135,16 @@ export class VoiceHost {
     setTimeout(() => {
       this.control();
     }, 1000);
+  }
+
+  /** Дзвінок і активність ПК (calls.ts, powerMonitor) — у процес voice. */
+  setPc(state: { readonly inCall: boolean; readonly active: boolean }): void {
+    this.pc = state;
+    this.post({ type: 'voice.pc', inCall: state.inCall, active: state.active });
+  }
+
+  get inCall(): boolean {
+    return this.pc.inCall;
   }
 
   /** Ще спроба після збою: моделі докачано, або процес падав. */
@@ -237,6 +248,7 @@ export class VoiceHost {
         });
         this.ensureAudio();
         if (this.paused) this.post({ type: 'voice.pause', paused: true });
+        this.post({ type: 'voice.pc', inCall: this.pc.inCall, active: this.pc.active });
         break;
       case 'voice.failed':
         this.failure = message.missing.length > 0 ? 'Немає моделей голосу' : message.error;

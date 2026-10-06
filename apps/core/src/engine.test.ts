@@ -448,3 +448,32 @@ describe('рушій ходів: збої й ліміти', () => {
     expect(turnRows(db)).toEqual([]);
   });
 });
+
+describe('заблокований ПК', () => {
+  it('гучність — можна; відкрити програму — «Розблокуй комп’ютер», нічого не виконано', async () => {
+    const { engine, tools, said, done } = await setup();
+    engine.setPcState({ locked: true });
+    await engine.command({ id: 't1', text: 'зроби гучність на тридцять', source: 'voice' });
+    expect(tools.runs).toEqual([{ name: 'volume', args: { level: 30 } }]);
+    await engine.command({ id: 't2', text: 'відкрий телеграм', source: 'voice' });
+    expect(tools.runs).toHaveLength(1);
+    expect(said().at(-1)).toBe("Розблокуй комп'ютер.");
+    expect(done().at(-1)).toMatchObject({ turnId: 't2', outcome: 'failed' });
+    engine.setPcState({ locked: false });
+    await engine.command({ id: 't3', text: 'відкрий телеграм', source: 'voice' });
+    expect(tools.runs.at(-1)).toMatchObject({ name: 'open_app' });
+  });
+
+  it('хід через ШІ: заборонена дія не виконується, модель бачить чому', async () => {
+    const client = fakeClient([
+      reply([text('Відкриваю.'), use('u1', 'open_app', { app: 'Telegram' })], 'tool_use'),
+      reply([text("ПК заблоковано — спершу розблокуй комп'ютер.")]),
+    ]);
+    const { engine, tools } = await setup({ client });
+    engine.setPcState({ locked: true });
+    await engine.command({ id: 't1', text: 'запусти месенджер для роботи', source: 'voice' });
+    expect(tools.runs).toEqual([]);
+    const results = client.requests[1]?.messages.at(-1)?.content as Anthropic.ContentBlockParam[];
+    expect(JSON.stringify(results)).toContain('ПК заблоковано');
+  });
+});

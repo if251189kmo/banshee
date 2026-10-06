@@ -171,6 +171,9 @@ process.parentPort.on('message', (event) => {
     case 'voice.hush':
       voice?.service.hush();
       return;
+    case 'voice.pc':
+      voice?.service.pcState({ inCall: message.inCall, active: message.active });
+      return;
     case 'voice.stop':
       process.exit(0);
   }

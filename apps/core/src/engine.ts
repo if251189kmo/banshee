@@ -34,6 +34,7 @@ import { confirmQuestion, FAILURE_PHRASES, routinePhrase, systemInfoPhrase } fro
 import { readSettings, writeSetting } from './settings/store.ts';
 import { aliasPronunciations } from './speech/pronunciations.ts';
 import { speechText } from './speech/speech.ts';
+import { allowedWhileLocked, lockedGuard } from './locked.ts';
 
 /** Розмова триває, поки паузи коротші за 10 хв (03-brain.md, «Контекст розмови»). */
 export const EPISODE_GAP_MS = 10 * 60 * 1000;
@@ -102,6 +103,9 @@ export class Engine {
   private readonly deps: EngineDeps;
   private episode: Episode | null = null;
   private running: Running | null = null;
+  /** Інструменти ПК з перевіркою блокування (locked.ts). */
+  private readonly tools: ToolRunner;
+  private pcLocked = false;
   /** Звідки команда ходу: відповідь на голосову — голосом (say). */
   private readonly sources = new Map<string, TurnSource>();
   private apiProblem: { problem: ApiProblem; at: number; until?: string } | null = null;
@@ -116,7 +120,16 @@ export class Engine {
 
   constructor(deps: EngineDeps) {
     this.deps = deps;
+    this.tools = lockedGuard(deps.tools, () => ({
+      locked: this.pcLocked,
+      allowed: this.settings()['security.lockedActions'],
+    }));
     syncBuiltinRoutines(deps.db);
+  }
+
+  /** Стан ПК від desktop: заблоковано — лише дозволені дії (02-voice.md, «Заблокований ПК»). */
+  setPcState(state: { readonly locked: boolean }): void {
+    this.pcLocked = state.locked;
   }
 
   private now(): Date {
@@ -525,6 +538,14 @@ export class Engine {
     const settings = this.settings();
     for (const step of steps) {
       if (running.controller.signal.aborted) return 'cancelled';
+      if (
+        this.pcLocked &&
+        step.tool !== SETTINGS_TOOL &&
+        !allowedWhileLocked(step.tool, step.args, settings['security.lockedActions'])
+      ) {
+        this.say(command.id, FAILURE_PHRASES.locked);
+        return 'failed';
+      }
       if (step.tool === SETTINGS_TOOL) {
         const ok = await this.routineSetting(step, command, turnRow);
         if (ok !== 'success') return ok;
@@ -533,7 +554,7 @@ export class Engine {
       }
       let assessment;
       try {
-        assessment = await this.deps.tools.assess(step.tool, step.args);
+        assessment = await this.tools.assess(step.tool, step.args);
       } catch {
         this.say(command.id, FAILURE_PHRASES.failed);
         return 'failed';
@@ -580,7 +601,7 @@ export class Engine {
       }
       running.acting = true;
       this.deps.emit({ type: 'turn.state', turnId: command.id, state: 'acting' });
-      const outcome = await this.deps.tools.run(step.tool, step.args);
+      const outcome = await this.tools.run(step.tool, step.args);
       running.acting = false;
       const actionId = this.journal(
         turnRow,
@@ -691,7 +712,7 @@ export class Engine {
         history,
         pending: episode.pending,
         turnText: formatOwnerTurn(command.text, localDateTime(this.now()), command.source),
-        tools: this.deps.tools,
+        tools: this.tools,
         confirm: this.confirm(command.id),
         voiceAllowed: command.source === 'voice' && settings['security.voiceConfirm'].enabled,
         voiceSec: settings['security.voiceConfirm'].seconds,
@@ -844,7 +865,7 @@ export class Engine {
         );
       }
     } else {
-      ok = (await this.deps.tools.undo(record)).ok;
+      ok = (await this.tools.undo(record)).ok;
     }
     this.journal(null, 'ui', {
       tool: 'undo',
