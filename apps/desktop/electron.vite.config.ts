@@ -6,13 +6,24 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'electron-vite';
+import type { Rollup } from 'vite';
 
 const { version } = JSON.parse(
   readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
 ) as { version: string };
 
+// zod 4 згадує «@__PURE__» у тексті своїх коментарів, і Rollup на кожну збірку попереджає, що не може
+// прочитати їх як позначку, та прибирає коментар. Код збірки від цього не змінюється, а виправити це
+// можна лише в самому пакеті, тож INVALID_ANNOTATION із node_modules не показуємо; решта попереджень —
+// як були.
+const onwarn: Rollup.WarningHandlerWithDefault = (warning, warn) => {
+  if (warning.code === 'INVALID_ANNOTATION' && warning.id?.includes('node_modules')) return;
+  warn(warning);
+};
+
 export default defineConfig({
-  main: {},
+  // Збірки входів `?modulePath` (core, mcp/pc, voice) успадковують це налаштування від main.
+  main: { build: { rollupOptions: { onwarn } } },
   preload: {
     // Ізольований preload (sandbox) вантажиться лише як CommonJS. Два мости: вікна з core і вікно звуку.
     build: {
@@ -22,6 +33,7 @@ export default defineConfig({
           audio: fileURLToPath(new URL('./src/preload/audio.ts', import.meta.url)),
         },
         output: { format: 'cjs' },
+        onwarn,
       },
     },
   },
@@ -36,6 +48,7 @@ export default defineConfig({
           overlay: fileURLToPath(new URL('./src/renderer/overlay.html', import.meta.url)),
           audio: fileURLToPath(new URL('./src/renderer/audio.html', import.meta.url)),
         },
+        onwarn,
       },
     },
   },
