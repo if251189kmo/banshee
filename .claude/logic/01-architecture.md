@@ -140,7 +140,8 @@ flowchart TB
 - **Оновлення** — новою версією встановлювача. Пам'ять і налаштування зберігаються, схема БД мігрує автоматично. Автооновлення з GitHub Releases (безкоштовно) — пізніше.
 - **Реалізація — крок 1.9** (`apps/desktop/electron-builder.yml`, `build/installer.nsh`, 2026-10-05):
   - `npm run dist` → `.data/dist/Banshee-Setup-<версія>.exe`, ≈ 113 МБ; програма після встановлення — ≈ 0,4 ГБ, з них Electron ≈ 0,37 ГБ. electron-builder 26 бере Electron з `node_modules` — без завантаження й перезбирання; NSIS і решту інструментів качає в `.data/electron-builder-cache` на D:.
-  - У `node_modules` програми — лише нативні модулі: `better-sqlite3` (лише збірка win32-x64, без вихідного коду SQLite) і `@napi-rs/keyring`; решту JavaScript Vite вже зібрав. `onnxruntime-node` і `sherpa-onnx-node` додасть етап 2.
+  - У `node_modules` програми — лише нативні модулі: `better-sqlite3` (лише збірка win32-x64, без вихідного коду SQLite) і `@napi-rs/keyring`; решту JavaScript Vite вже зібрав. З етапу 2 — ще `onnxruntime-node` (лише win32-x64, 64 МБ) і `sherpa-onnx-node` з `sherpa-onnx-win-x64`; вони вантажать DLL поруч із собою, тож розпаковані з asar.
+  - Моделі голосу встановлювач не везе: Налаштування → Голос → «Завантажити моделі голосу» ([02-voice.md](02-voice.md), «У програмі»). Дані вимови espeak-ng (649 КБ) — у ресурсах програми.
   - Тека за замовчуванням — `%LOCALAPPDATA%\Banshee`. Після вибору теки встановлювач дописує `\Banshee`, якщо його немає в шляху, і `\app` — і в тихому режимі (`/S`, оновлення), де сторінок немає. Корінь системного диска стає `C:\Banshee`.
   - Для Program Files, теки Windows і тек OneDrive, Google Drive, Dropbox, iCloud кнопка «Далі» неактивна; пояснення — над полем вибору теки.
   - Системні вимоги перевіряються на старті встановлювача: збірка Windows, ядра, RAM; слабший ПК — попередження.
@@ -262,7 +263,9 @@ flowchart TB
   - `npm run dev` — програма з перезбиранням на льоту (electron-vite);
   - `npm run build` — збірка в `apps/desktop/out`;
   - `npm run desktop:check` — крок 1.1: перевірка зібраної програми, результат — `.data/desktop-check.json`;
-  - `npm run desktop:icons` — іконки трею й програми.
+  - `npm run desktop:icons` — іконки трею й програми;
+  - `npm run voice:check` — етап 2: голосовий конвеєр продукту на записах етапу 0, без мікрофона ([02-voice.md](02-voice.md), «Реалізація — етап 2»);
+  - `npm run voice:dev-setup` — модель слова й профіль голосу власника з даних етапу 0 для розробки; `-- --to <тека Banshee>` — для встановленої програми.
 
 ## Структура репозиторію
 
@@ -270,13 +273,15 @@ flowchart TB
 banshee/
 ├─ apps/
 │  ├─ core/        агентний цикл, політика дій, пам'ять, облік витрат
-│  └─ desktop/     Electron: трей, оверлей, аудіо, процес voice, підтвердження
+│  ├─ voice/       голос: слово, VAD, голос власника, Parakeet, Piper, моделі
+│  └─ desktop/     Electron: трей, оверлей, вікно звуку, підтвердження
 │     ├─ src/main/      головний процес: тека Banshee, трей, нагляд за core, вікна
 │     ├─ src/core/      вхід utilityProcess core
 │     ├─ src/pc/        вхід mcp/pc у зібраній програмі
+│     ├─ src/voice/     вхід utilityProcess voice
 │     ├─ src/preload/   міст сторінки до core
 │     ├─ src/renderer/  сторінки React
-│     └─ resources/     іконки
+│     └─ resources/     іконки, дані вимови espeak-ng
 ├─ mcp/
 │  └─ pc/          інструменти ПК, постійний PowerShell
 ├─ packages/

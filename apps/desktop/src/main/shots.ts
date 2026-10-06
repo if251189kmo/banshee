@@ -34,6 +34,10 @@ const VIEWS: readonly { name: string; command: UiToWindow }[] = [
   { name: 'journal', command: { type: 'center.section', section: 'journal' } },
   { name: 'settings-general', command: { type: 'center.section', section: 'settings' } },
   {
+    name: 'settings-voice',
+    command: { type: 'center.section', section: 'settings', anchor: 'voice' },
+  },
+  {
     name: 'settings-brain',
     command: { type: 'center.section', section: 'settings', anchor: 'brain' },
   },
@@ -46,9 +50,20 @@ const VIEWS: readonly { name: string; command: UiToWindow }[] = [
   { name: 'wizard', command: { type: 'center.section', section: 'wizard' } },
 ];
 
+/** Знімок вікна; понад 10 с — помилка, а не вічне очікування (capturePage інколи не відповідає). */
 async function capture(win: BrowserWindow, file: string): Promise<void> {
-  const image = await win.webContents.capturePage();
-  writeFileSync(file, image.toPNG());
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`знімок ${file} не зроблено за 10 с`));
+    }, 10_000);
+  });
+  try {
+    const image = await Promise.race([win.webContents.capturePage(), timeout]);
+    writeFileSync(file, image.toPNG());
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function runShots(target: ShotsTarget, dir: string): Promise<void> {
@@ -68,14 +83,27 @@ export async function runShots(target: ShotsTarget, dir: string): Promise<void> 
       await capture(center, join(dir, `${theme}-${view.name}.png`));
     }
     // Оверлей з клавіатури: набрати команду й Enter — як власник.
+    target.log.info('ui-shots.overlay', { theme, step: 'open' });
     const overlay = target.openOverlay();
     await sleep(500);
+    target.log.info('ui-shots.overlay', {
+      theme,
+      step: 'type',
+      visible: overlay.isVisible(),
+      focused: overlay.isFocused(),
+    });
     for (const char of 'котра година')
       overlay.webContents.sendInputEvent({ type: 'char', keyCode: char });
     overlay.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
     overlay.webContents.sendInputEvent({ type: 'char', keyCode: '\r' });
     overlay.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
     await sleep(1200);
+    target.log.info('ui-shots.overlay', {
+      theme,
+      step: 'capture',
+      visible: overlay.isVisible(),
+      bounds: JSON.stringify(overlay.getBounds()),
+    });
     await capture(overlay, join(dir, `${theme}-overlay.png`));
   }
   nativeTheme.themeSource = 'system';

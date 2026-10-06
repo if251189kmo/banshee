@@ -24,6 +24,8 @@ import { loadWakeDetector, type WakeDetector } from './wake.ts';
 
 export interface StartVoiceOptions {
   readonly modelsDir: string;
+  /** Дані вимови espeak-ng для озвучки (resources\espeak-ng-data). */
+  readonly espeakDir: string;
   readonly dataDir: string;
   readonly logsDir: string;
   readonly toCore: (message: DesktopMessage) => void;
@@ -80,7 +82,7 @@ export async function startVoice(options: StartVoiceOptions): Promise<StartedVoi
         })
       : Promise.resolve<WakeDetector | null>(null),
     loadRecognizer(models(MODEL_PATHS.parakeet)),
-    loadSynthesizer(models(MODEL_PATHS.tts), TTS_MODEL_FILE),
+    loadSynthesizer(models(MODEL_PATHS.tts), TTS_MODEL_FILE, options.espeakDir),
     readProfile(join(options.dataDir, 'voice', PROFILE_FILE)),
   ]);
   const speech = loadSpeechDetector(models(MODEL_PATHS.vad));

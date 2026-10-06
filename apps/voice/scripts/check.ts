@@ -84,7 +84,11 @@ started = performance.now();
 const recognizer = await loadRecognizer(join(MODELS, MODEL_PATHS.parakeet));
 loads.parakeet = seconds(started);
 started = performance.now();
-const synthesizer = await loadSynthesizer(join(MODELS, MODEL_PATHS.tts), TTS_MODEL_FILE);
+const synthesizer = await loadSynthesizer(
+  join(MODELS, MODEL_PATHS.tts),
+  TTS_MODEL_FILE,
+  resolve('apps/desktop/resources/espeak-ng-data'),
+);
 loads.tts = seconds(started);
 console.log(
   `Моделі, с: ${Object.entries(loads)

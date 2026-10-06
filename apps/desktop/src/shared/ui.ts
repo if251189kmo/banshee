@@ -30,7 +30,8 @@ export const EXTERNAL_LINKS: Readonly<Record<ExternalLink, string>> = {
 const section = z.enum(SECTIONS);
 
 export const uiToMain = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('overlay.hide') }),
+  /** idle — 8 с без дій; user — Esc. Після показу idle-запит застарілий (main.showOverlay). */
+  z.object({ type: z.literal('overlay.hide'), reason: z.enum(['idle', 'user']).optional() }),
   /** Висота вмісту оверлею: вікно росте й стискається разом із відповіддю. */
   z.object({ type: z.literal('overlay.resize'), height: z.number().int().min(40).max(2000) }),
   z.object({
@@ -46,10 +47,12 @@ export const uiToMain = z.discriminatedUnion('type', [
   z.object({ type: z.literal('diagnostics.show') }),
   /** Кнопка мікрофона в оверлеї: слухати команду без слова «Banshee». */
   z.object({ type: z.literal('voice.listen') }),
+  /** Завантажити моделі голосу, яких бракує (Налаштування → Голос). */
+  z.object({ type: z.literal('voice.download') }),
 ]);
 
 /** Запити сторінки до головного процесу з відповіддю (ipcRenderer.invoke). */
-export const INVOKE_CHANNELS = ['about', 'diagnostics', 'erase'] as const;
+export const INVOKE_CHANNELS = ['about', 'diagnostics', 'erase', 'voiceModels'] as const;
 export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];
 export type UiToMain = z.output<typeof uiToMain>;
 
@@ -63,6 +66,14 @@ export const uiToWindow = z.discriminatedUnion('type', [
     state: z.enum([...VOICE_STATES, 'off', 'failed']),
     speaking: z.boolean(),
     problem: z.string().nullable(),
+  }),
+  /** Завантаження моделей голосу: перебіг, кінець або помилка. */
+  z.object({
+    type: z.literal('voice.download'),
+    state: z.enum(['running', 'done', 'failed']),
+    done: z.number().min(0),
+    total: z.number().min(0),
+    error: z.string().optional(),
   }),
   /** Що почув Banshee: команда (з ходом) або «так» / «ні» на картку. */
   z.object({

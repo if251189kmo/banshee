@@ -755,3 +755,8 @@ button.icon.mic[aria-pressed='true'] {
     grid-template-columns: 1fr;
   }
 }
+
+.facts-list {
+  margin: 8px 0;
+  padding-left: 20px;
+}

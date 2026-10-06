@@ -27,7 +27,6 @@ export function requiredFiles(modelsDir: string): string[] {
     `${MODEL_PATHS.parakeet}/tokens.txt`,
     `${MODEL_PATHS.tts}/${TTS_MODEL_FILE}`,
     `${MODEL_PATHS.tts}/tokens.txt`,
-    `${MODEL_PATHS.tts}/espeak-ng-data`,
   ].map((path) => join(modelsDir, path));
 }
 
@@ -37,7 +36,9 @@ export function missingModels(modelsDir: string): string[] {
 
 /**
  * Модель слова — у data\voice: її довчають вимови власника, тож вона, як і профіль голосу,
- * належить цьому ПК. Поки кроку «Навчити слово» (2.6) немає — базова модель з models\wakeword.
+ * належить цьому ПК. Базової моделі програма поки не везе: модель ітерації 4 вчилась на подкастах
+ * UK-PODS (CC BY-NC 4.0 — лише локальна перевірка); що везти — крок 2.6. Без моделі слова працює
+ * кнопка мікрофона.
  */
 export const WAKE_MODEL_FILE = 'wake-model.json';
 export const PROFILE_FILE = 'voice-profile.json';

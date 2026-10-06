@@ -20,7 +20,7 @@ import {
   type ListenerOptions,
   type ListenerState,
 } from './listener.ts';
-import { splitSentences, type PhraseCache, type TtsVoice } from './phrases.ts';
+import { splitSentences, type PhraseStore, type TtsVoice } from './phrases.ts';
 import { VOICE_THRESHOLDS, WAKE_THRESHOLDS } from './thresholds.ts';
 
 export interface VoiceEngines {
@@ -42,7 +42,7 @@ export interface VoiceServiceDeps {
   readonly engines: VoiceEngines;
   /** Профіль голосу власника; null — ще не записано, команди не перевіряються. */
   readonly profile: Float32Array | null;
-  readonly phrases: PhraseCache | null;
+  readonly phrases: PhraseStore | null;
   toCore(message: DesktopMessage): void;
   toAudio(message: VoiceToAudio): void;
   toMain(message: ControlFromVoice): void;
@@ -250,6 +250,32 @@ export class VoiceService {
     this.silence();
     this.listener.reset();
     this.turnId = null;
+  }
+
+  /**
+   * Готові фрази (02-voice.md, «Готові фрази»): у простої синтезувати часті перші фрази, яких ще
+   * немає серед збережених, — тоді вони звучать одразу, а не через 0,45 с. Лише коли Banshee чекає
+   * слова й мовчить; будь-яка команда перериває, наступна фраза — після неї.
+   */
+  async warmPhrases(phrases: readonly string[], pauseMs = 200): Promise<number> {
+    const cache = this.deps.phrases;
+    if (!cache) return 0;
+    let made = 0;
+    for (const phrase of phrases) {
+      const voice = {
+        id: this.settings['voice.tts'].voice,
+        speed: this.settings['voice.tts'].speed,
+      };
+      if (cache.has(phrase, voice)) continue;
+      while (this.state !== 'idle' || this.speaking)
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      const samples = await this.deps.engines.synthesize(phrase, voice, this.abort.signal);
+      if (!samples) continue;
+      await cache.put(phrase, voice, samples);
+      made += 1;
+      await new Promise((resolve) => setTimeout(resolve, pauseMs));
+    }
+    return made;
   }
 
   /** Для перевірки програми: дочекатися обробки звуку й розпізнавання. */

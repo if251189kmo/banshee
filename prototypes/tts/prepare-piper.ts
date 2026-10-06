@@ -3,7 +3,7 @@
 // пише tokens.txt з phoneme_id_map і копіює дані вимови espeak-ng. Оригінальний файл не змінюється.
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { piperTokens, withMetadata } from './onnx-meta.ts';
+import { piperTokens, withMetadata } from '../../apps/voice/src/onnx-meta.ts';
 
 interface PiperConfig {
   readonly phoneme_type?: string;

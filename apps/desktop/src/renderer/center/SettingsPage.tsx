@@ -4,6 +4,7 @@
 import { SETTINGS, type SettingKey, type Settings } from '@banshee/shared';
 import { useEffect, useState } from 'react';
 import { AiStateCard } from '../components/AiStateCard.tsx';
+import { VoiceCard } from '../components/VoiceCard.tsx';
 import { SECTION_TOPIC } from '../help/help-model.ts';
 import { core, onCoreMessage } from '../core-client.ts';
 import {
@@ -393,11 +394,7 @@ export function SettingsPage({
         </p>
       ) : null}
       {!query && section === 'ai' ? <AiStateCard withKey /> : null}
-      {!query && section === 'voice' ? (
-        <p className="note">
-          Голос з'явиться в наступній версії Banshee: ці налаштування збережуться й запрацюють тоді.
-        </p>
-      ) : null}
+      {!query && section === 'voice' ? <VoiceCard /> : null}
       {settings ? (
         keys.map((key) => <SettingRow key={key} settingKey={key} value={settings[key]} />)
       ) : (

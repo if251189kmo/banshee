@@ -5,7 +5,8 @@
   "description": "Banshee: процес voice — слово «Banshee», кінець фрази, голос власника, розпізнавання й озвучка",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./download": "./src/download.ts"
   },
   "dependencies": {
     "@banshee/shared": "0.0.0",

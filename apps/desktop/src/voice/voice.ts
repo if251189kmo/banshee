@@ -5,6 +5,7 @@ import {
   CHUNK,
   MissingModels,
   SAMPLE_RATE,
+  frequentPhrases,
   resample,
   startVoice,
   type StartedVoice,
@@ -101,6 +102,7 @@ async function init(message: VoiceInit, ports: MessagePortMain[]): Promise<void>
   try {
     voice = await startVoice({
       modelsDir: message.modelsDir,
+      espeakDir: message.espeakDir,
       dataDir: message.dataDir,
       logsDir: message.logsDir,
       toCore: (outgoing) => {
@@ -125,7 +127,20 @@ async function init(message: VoiceInit, ports: MessagePortMain[]): Promise<void>
   const ms = Math.round(performance.now() - startedAt);
   voice.log.info('voice.start', { ms, wakeModel: voice.wakeModel, profile: voice.profile });
   post({ type: 'voice.started', ms, profile: voice.profile, wakeModel: voice.wakeModel });
-  if (testing) await selfTest(voice);
+  if (testing) {
+    await selfTest(voice);
+    return;
+  }
+  // Часті фрази — у простої, один раз: далі вони збережені в data\voice\phrases.
+  const started = voice;
+  void started.service.warmPhrases(frequentPhrases()).then(
+    (made) => {
+      if (made > 0) started.log.info('voice.phrases', { made });
+    },
+    (error: unknown) => {
+      started.log.warn('voice.phrases', { error: errorText(error) });
+    },
+  );
 }
 
 process.on('uncaughtException', (error) => {

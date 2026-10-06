@@ -222,3 +222,44 @@ describe('yesNo', () => {
     expect(yesNo('Таксі викликай')).toBeNull();
   });
 });
+
+describe('готові фрази', () => {
+  it('у простої синтезує лише ті, яких ще немає, і зберігає', async () => {
+    const stored = new Map<string, Float32Array>([['Готово.', new Float32Array(1)]]);
+    const synthesized: string[] = [];
+    const service = new VoiceService({
+      engines: {
+        wake: () => Promise.resolve(null),
+        speech: () => false,
+        recognize: () => Promise.resolve(''),
+        embed: () => null,
+        synthesize: (text) => {
+          synthesized.push(text);
+          return Promise.resolve(new Float32Array(10));
+        },
+        sampleRate: 22_050,
+      },
+      profile: null,
+      phrases: {
+        get: (text) => Promise.resolve(stored.get(text) ?? null),
+        put: (text, _voice, samples) => {
+          stored.set(text, samples);
+          return Promise.resolve();
+        },
+        has: (text) => stored.has(text),
+      },
+      toCore: () => undefined,
+      toAudio: () => undefined,
+      toMain: () => undefined,
+      log: { info: () => undefined, warn: () => undefined },
+      now: () => 0,
+    });
+    const made = await service.warmPhrases(
+      ['Готово.', 'Звук вимкнено.', 'Гучність сто відсотків.'],
+      0,
+    );
+    expect(made).toBe(2);
+    expect(synthesized).toEqual(['Звук вимкнено.', 'Гучність сто відсотків.']);
+    expect(stored.has('Звук вимкнено.')).toBe(true);
+  });
+});

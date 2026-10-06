@@ -17,8 +17,8 @@ const STALE_TURN_MS = 60_000;
 
 if (location.hash === '#mica') document.documentElement.classList.add('mica');
 
-function hide(): void {
-  window.banshee.ui({ type: 'overlay.hide' });
+function hide(reason: 'idle' | 'user'): void {
+  window.banshee.ui({ type: 'overlay.hide', reason });
 }
 
 function Overlay() {
@@ -61,6 +61,12 @@ function Overlay() {
         else setHeard(command.text);
       }
     });
+    // Вікно знову видно — це теж дія: інакше таймер, що «спав», поки оверлей був прихований,
+    // сховав би його одразу після показу.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') touch();
+    };
+    document.addEventListener('visibilitychange', onVisible);
     const offCore = onCoreMessage((message: CoreMessage) => {
       touch();
       if (message.type === 'settings.changed' && message.key === 'ai.showTurnCost') {
@@ -76,6 +82,7 @@ function Overlay() {
     return () => {
       off();
       offCore();
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 
@@ -98,7 +105,7 @@ function Overlay() {
   useEffect(() => {
     const timer = setInterval(() => {
       if (hovered.current || pending || busy) return;
-      if (Date.now() - lastActivity.current > IDLE_HIDE_MS) hide();
+      if (Date.now() - lastActivity.current > IDLE_HIDE_MS) hide('idle');
     }, 500);
     return () => {
       clearInterval(timer);
@@ -108,7 +115,7 @@ function Overlay() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       touch();
-      if (event.key === 'Escape' && !pending) hide();
+      if (event.key === 'Escape' && !pending) hide('user');
     };
     window.addEventListener('keydown', onKey);
     return () => {

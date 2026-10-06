@@ -69,6 +69,31 @@ async function windowState(win: BrowserWindow): Promise<WindowState> {
   return JSON.parse(json) as WindowState;
 }
 
+/**
+ * Почуте схоже на сказане: до 3 літер відмінності. Самоперевірка голосу перевіряє конвеєр, а не
+ * точність Parakeet: озвучка VITS щоразу звучить трохи інакше («Кота година.»).
+ */
+function closeTo(heard: string, expected: string): boolean {
+  const a = heard
+    .toLowerCase()
+    .replace(/[^\p{L} ]/gu, '')
+    .trim();
+  let previous = Array.from({ length: expected.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    for (let j = 1; j <= expected.length; j += 1)
+      current.push(
+        Math.min(
+          (previous[j - 1] ?? 0) + (a[i - 1] === expected[j - 1] ? 0 : 1),
+          (previous[j] ?? 0) + 1,
+          (current[j - 1] ?? 0) + 1,
+        ),
+      );
+    previous = current;
+  }
+  return (previous[expected.length] ?? 99) <= 3;
+}
+
 /** Чи живий процес: сигнал 0 лише перевіряє, що процес є. */
 function alive(pid: number): boolean {
   try {
@@ -146,7 +171,10 @@ export async function runSelfCheck(target: CheckTarget, out: string): Promise<vo
       // Встановлена програма без моделей: голос не перевіряється — це не збій програми.
     } else if (voice.selfTest === null) {
       problems.push(`голос не пройшов самоперевірку: ${voice.problem ?? voice.state}`);
-    } else if (!/котра година/iu.test(voice.selfTest.heard ?? '') || voice.selfTest.played === 0) {
+    } else if (
+      !closeTo(voice.selfTest.heard ?? '', 'котра година') ||
+      voice.selfTest.played === 0
+    ) {
       problems.push(
         `голос: почуто «${voice.selfTest.heard ?? ''}», озвучено ${String(voice.selfTest.played)}`,
       );

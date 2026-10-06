@@ -13,9 +13,14 @@ export interface Synthesizer {
   synthesize(text: string, voice: TtsVoice, signal?: AbortSignal): Promise<Float32Array | null>;
 }
 
+/**
+ * espeakDir — дані вимови espeak-ng: у програмі — урізані до української (resources\espeak-ng-data,
+ * 649 КБ замість 18 МБ; звук той самий до відліку).
+ */
 export async function loadSynthesizer(
   dir: string,
   model: string,
+  espeakDir: string,
   threads = 4,
 ): Promise<Synthesizer> {
   const tts = await sherpa.OfflineTts.createAsync({
@@ -23,7 +28,7 @@ export async function loadSynthesizer(
       vits: {
         model: join(dir, model),
         tokens: join(dir, 'tokens.txt'),
-        dataDir: join(dir, 'espeak-ng-data'),
+        dataDir: espeakDir,
       },
       numThreads: threads,
       debug: 0,

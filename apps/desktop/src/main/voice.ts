@@ -30,6 +30,7 @@ export interface VoiceHostDeps {
   readonly script: string;
   readonly appVersion: string;
   readonly modelsDir: string;
+  readonly espeakDir: string;
   readonly dataDir: string;
   readonly logsDir: string;
   readonly log: Log;
@@ -117,6 +118,31 @@ export class VoiceHost {
     this.post({ type: 'voice.listen' });
   }
 
+  /**
+   * Після сну Windows: мікрофон наново — старий потік після сну часто мовчить, а Bluetooth-
+   * гарнітура могла перепідключитись. Команду, що слухалась до сну, забути.
+   */
+  reopen(): void {
+    const win = this.audio;
+    if (!this.enabled || !win || win.isDestroyed() || win.webContents.isLoading()) return;
+    win.webContents.send('audio:control', {
+      capture: false,
+      microphone: this.devices.microphone,
+      speakers: this.devices.speakers,
+    });
+    this.post({ type: 'voice.pause', paused: this.paused });
+    setTimeout(() => {
+      this.control();
+    }, 1000);
+  }
+
+  /** Ще спроба після збою: моделі докачано, або процес падав. */
+  retry(): void {
+    if (!this.enabled) return;
+    this.failure = null;
+    this.supervisor.start();
+  }
+
   /** «Стоп»: замовкнути й забути команду. */
   hush(): void {
     this.post({ type: 'voice.hush' });
@@ -167,6 +193,7 @@ export class VoiceHost {
         type: 'voice.init',
         appVersion: this.deps.appVersion,
         modelsDir: this.deps.modelsDir,
+        espeakDir: this.deps.espeakDir,
         dataDir: this.deps.dataDir,
         logsDir: this.deps.logsDir,
         ...(this.deps.selfTest ? { selfTest: true } : {}),

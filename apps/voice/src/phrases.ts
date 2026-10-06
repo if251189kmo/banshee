@@ -42,7 +42,14 @@ export function phraseKey(text: string, voice: TtsVoice): string {
  * Збережені фрази: пам'ять + файли PCM 16 біт у data\voice\phrases\<голос>-<темп>\.
  * Розмір — ≈ 44 КБ на секунду звуку; сотня частих фраз — кілька мегабайтів.
  */
-export class PhraseCache {
+/** Збережені фрази: те, чим користується процес voice (тести підставляють свою). */
+export interface PhraseStore {
+  get(text: string, voice: TtsVoice): Promise<Float32Array | null>;
+  put(text: string, voice: TtsVoice, samples: Float32Array): Promise<void>;
+  has(text: string, voice: TtsVoice): boolean;
+}
+
+export class PhraseCache implements PhraseStore {
   private readonly memory = new Map<string, Float32Array>();
   private readonly dir: string;
   private readonly limit: number;

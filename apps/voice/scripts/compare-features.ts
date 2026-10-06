@@ -10,14 +10,20 @@ import {
   parseWakeModel,
   wakeScorer,
 } from '../src/index.ts';
-import { embeddingsOf, loadFeatureModels, sequenceAt } from '../../../prototypes/wakeword/features.ts';
+import {
+  embeddingsOf,
+  loadFeatureModels,
+  sequenceAt,
+} from '../../../prototypes/wakeword/features.ts';
 import { frameLevels, wakeStats } from '../../../prototypes/recorder/analyze.ts';
 
 const DATA = resolve('.data');
 const series = decodeWav(readFileSync(join(DATA, 'recordings/wake/far-quiet.wav'))).samples;
 const pcm = Float32Array.from(series, (value) => value * 32768);
 const words = wakeStats(frameLevels(Int16Array.from(pcm)), []).words;
-const score = wakeScorer(parseWakeModel(readFileSync(join(DATA, 'wakeword/model-owner-near.json'), 'utf8')));
+const score = wakeScorer(
+  parseWakeModel(readFileSync(join(DATA, 'wakeword/model-owner-near.json'), 'utf8')),
+);
 
 const batch = await embeddingsOf(await loadFeatureModels(2), pcm);
 const batchScores = batch.map((_, index) => {
@@ -56,6 +62,8 @@ for (const context of [0, 38, 1000]) {
     if (s >= 0.97) streamHits += 1;
     rows.push(`${b.toFixed(2)}/${s.toFixed(2)}`);
   }
-  console.log(`context ${String(context)}: пакетні ${String(batchHits)} з ${String(words.length)}, потокові ${String(streamHits)}`);
+  console.log(
+    `context ${String(context)}: пакетні ${String(batchHits)} з ${String(words.length)}, потокові ${String(streamHits)}`,
+  );
   console.log(rows.join(' '));
 }

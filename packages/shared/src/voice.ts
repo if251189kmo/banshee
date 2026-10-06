@@ -26,6 +26,8 @@ const voiceInit = z.object({
   type: z.literal('voice.init'),
   appVersion: z.string(),
   modelsDir: path,
+  /** Дані вимови espeak-ng для озвучки — у ресурсах програми. */
+  espeakDir: path,
   dataDir: path,
   logsDir: path,
   /**

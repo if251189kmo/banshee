@@ -5,7 +5,7 @@
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { release, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import {
   parseControlFromCore,
   parseCoreMessage,
@@ -29,7 +29,9 @@ import {
   MessageChannelMain,
   nativeImage,
   nativeTheme,
+  net,
   Notification,
+  powerMonitor,
   screen,
   session,
   shell,
@@ -59,6 +61,12 @@ import { runShots } from './shots.ts';
 import { MAX_CRASHES, Supervisor, type ChildHandle } from './supervisor.ts';
 import { trayView, type TrayIcon } from './tray-view.ts';
 import { VoiceHost, type VoiceHostState } from './voice.ts';
+import {
+  MODELS_TOTAL_BYTES,
+  downloadModels,
+  missingDownloads,
+  type DownloadProgress,
+} from '@banshee/voice/download';
 
 /** Знімки інтерфейсу для перевірки вигляду — теж в окремій теці й без ключа. */
 const UI_SHOTS = process.argv.includes('--ui-shots');
@@ -88,6 +96,9 @@ let icons: Record<TrayIcon, NativeImage> | null = null;
 let center: BrowserWindow | null = null;
 let overlay: BrowserWindow | null = null;
 let overlayHeight = OVERLAY_MIN_HEIGHT;
+/** Коли оверлей показано: запит «сховати через бездіяльність» одразу після показу — застарілий. */
+let overlayShownAt = 0;
+const STALE_IDLE_HIDE_MS = 1500;
 const windows = new Map<BrowserWindow, WindowKind>();
 let core: UtilityProcess | null = null;
 let mainPort: MessagePortMain | null = null;
@@ -104,6 +115,13 @@ let lastDiagnostics: string | null = null;
 let audioWindow: BrowserWindow | null = null;
 let voiceSelfTest: Extract<ControlFromVoice, { type: 'voice.selfTest' }> | null = null;
 let voiceReadyAt: number | null = null;
+/** Остання самоперевірка процесу voice: модель слова й профіль голосу. */
+let voiceInfo: { wakeModel: 'own' | 'base' | 'none'; profile: boolean } | null = null;
+let modelsDownload: {
+  state: 'running' | 'done' | 'failed';
+  progress: DownloadProgress | null;
+  error?: string;
+} | null = null;
 const replies = new Map<string, (reply: Extract<CoreMessage, { type: 'reply' }>) => void>();
 
 const supervisor = new Supervisor({
@@ -126,6 +144,8 @@ const voice = new VoiceHost({
   script: voicePath,
   appVersion: app.getVersion(),
   modelsDir: paths.models,
+  // Нативний код читає файли з диска, не з asar: ресурси розпаковано (asarUnpack).
+  espeakDir: resource('espeak-ng-data').replace(`app.asar${sep}`, `app.asar.unpacked${sep}`),
   dataDir: paths.data,
   logsDir: paths.logs,
   log,
@@ -484,6 +504,7 @@ function showOverlay(focus = true): void {
   const win = ensureOverlay();
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   win.setBounds(overlayBounds(display.workArea, overlayHeight));
+  overlayShownAt = performance.now();
   if (focus) {
     win.show();
     win.focus();
@@ -514,6 +535,10 @@ ipcMain.on('ui', (event, data: unknown) => {
   const command = parsed.data;
   switch (command.type) {
     case 'overlay.hide':
+      // Таймер бездіяльності сторінки, що «спав», поки оверлей був прихований, може спрацювати
+      // раніше за повідомлення про показ — такий запит ігноруємо; Esc діє завжди.
+      if (command.reason === 'idle' && performance.now() - overlayShownAt < STALE_IDLE_HIDE_MS)
+        return;
       overlay?.hide();
       return;
     case 'overlay.resize':
@@ -533,6 +558,9 @@ ipcMain.on('ui', (event, data: unknown) => {
       return;
     case 'voice.listen':
       voice.listen();
+      return;
+    case 'voice.download':
+      void downloadVoiceModels();
       return;
   }
 });
@@ -569,6 +597,74 @@ ipcMain.handle('ui:erase', async (event) => {
   }, 200);
   return true;
 });
+
+/** Моделі голосу для Налаштувань → Голос: чого бракує, хід завантаження, модель слова й профіль. */
+ipcMain.handle('ui:voiceModels', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || !windows.has(win)) throw new Error('Невідоме вікно');
+  const missing = missingDownloads(paths.models);
+  return {
+    missingFiles: missing.files.length,
+    missingBytes: missing.bytes,
+    totalBytes: MODELS_TOTAL_BYTES,
+    folder: paths.models,
+    download: modelsDownload,
+    voice: voiceInfo,
+  };
+});
+
+function broadcast(message: UiToWindow): void {
+  for (const win of windows.keys()) toWindow(win, message);
+}
+
+/**
+ * Моделі голосу, яких бракує (01-architecture.md, «Встановлення й оновлення»): ≈ 0,8 ГБ, з
+ * перевіркою SHA-256 і докачуванням. net.fetch бере проксі з налаштувань Windows.
+ */
+async function downloadVoiceModels(): Promise<void> {
+  if (modelsDownload?.state === 'running') return;
+  modelsDownload = { state: 'running', progress: null };
+  let last = 0;
+  const seen: { progress: DownloadProgress | null } = { progress: null };
+  try {
+    await downloadModels(paths.models, {
+      fetch: (url, init) => net.fetch(url, init),
+      onProgress: (progress) => {
+        seen.progress = progress;
+        if (modelsDownload) modelsDownload.progress = progress;
+        // Не частіше, ніж раз на 300 мс: сторінці досить.
+        if (performance.now() - last < 300) return;
+        last = performance.now();
+        broadcast({
+          type: 'voice.download',
+          state: 'running',
+          done: progress.done,
+          total: progress.total,
+        });
+      },
+    });
+    modelsDownload = { state: 'done', progress: null };
+    broadcast({
+      type: 'voice.download',
+      state: 'done',
+      done: MODELS_TOTAL_BYTES,
+      total: MODELS_TOTAL_BYTES,
+    });
+    log.info('voice.models', { state: 'done' });
+    voice.retry();
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    modelsDownload = { state: 'failed', progress: seen.progress, error: text };
+    broadcast({
+      type: 'voice.download',
+      state: 'failed',
+      done: seen.progress?.done ?? 0,
+      total: MODELS_TOTAL_BYTES,
+      error: text,
+    });
+    log.warn('voice.models', { state: 'failed', error: text });
+  }
+}
 
 ipcMain.handle('ui:diagnostics', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
@@ -622,6 +718,7 @@ function onVoiceMessage(message: ControlFromVoice): void {
   switch (message.type) {
     case 'voice.started':
       voiceReadyAt = performance.now();
+      voiceInfo = { wakeModel: message.wakeModel, profile: message.profile };
       return;
     case 'voice.heard':
       if (overlay) toWindow(overlay, message);
@@ -775,6 +872,11 @@ function start(): void {
   refreshTray();
   supervisor.start();
   if (!SELF_CHECK) ensureOverlay();
+  // Після сну чи гібернації аудіоконвеєр перезапускається сам (02-voice.md, «Зміна пристроїв і сон»).
+  powerMonitor.on('resume', () => {
+    log.info('power.resume');
+    voice.reopen();
+  });
   log.info('desktop.tray', { ms: Math.round(performance.now() - launchedAt) });
   if (UI_SHOTS) {
     void runShots(
