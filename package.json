@@ -15,7 +15,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p apps/desktop/src/renderer && tsc --noEmit -p apps/desktop/src/preload",
     "lint": "eslint . --max-warnings 0",
-    "test": "vitest run",
+    "test": "node scripts/test.ts",
     "check": "npm run typecheck && npm run lint && npm test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
