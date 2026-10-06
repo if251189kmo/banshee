@@ -84,6 +84,8 @@ declare module 'sherpa-onnx-node' {
       text: string;
       sid: number;
       speed: number;
+      /** Типово true; в Electron — false: зовнішні буфери V8 там заборонені. */
+      enableExternalBuffer?: boolean;
       onProgress?: (info: {
         samples: Float32Array;
         progress: number;

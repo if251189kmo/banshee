@@ -55,8 +55,8 @@ export default defineConfig(
     languageOptions: { globals: { process: 'readonly', console: 'readonly' } },
   },
   {
-    // Сторінки прототипів працюють у браузері й AudioWorklet.
-    files: ['prototypes/**/public/**/*.js'],
+    // Сторінки прототипів і worklet вікна звуку працюють у браузері й AudioWorklet.
+    files: ['prototypes/**/public/**/*.js', 'apps/desktop/src/renderer/public/**/*.js'],
     languageOptions: { globals: BROWSER_GLOBALS },
   },
   prettier,

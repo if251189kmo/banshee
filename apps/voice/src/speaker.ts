@@ -12,11 +12,7 @@ export { cosine, normalized, profileOf } from './vectors.ts';
 
 export const VOICE_MODEL = 'nemo_en_titanet_small';
 
-/**
- * Поріг за «Суворістю перевірки». Крок 0.6: найнижча схожість власника 0,373, найвища чужих
- * 0,271; середня — посередині. Уточнюється на етапі 2 на 50 + 50 фразах.
- */
-export const VOICE_THRESHOLDS = { low: 0.28, medium: 0.32, high: 0.36 } as const;
+export { VOICE_THRESHOLDS } from './thresholds.ts';
 
 export interface VoiceProfile {
   readonly model: string;
@@ -74,7 +70,8 @@ export function loadVoicePrinter(modelPath: string): VoicePrinter {
       const stream = extractor.createStream();
       stream.acceptWaveform({ sampleRate: SAMPLE_RATE, samples });
       stream.inputFinished();
-      return extractor.isReady(stream) ? Float32Array.from(extractor.compute(stream)) : null;
+      // false — копія замість зовнішнього буфера: у Electron пам'ять V8 ізольована.
+      return extractor.isReady(stream) ? Float32Array.from(extractor.compute(stream, false)) : null;
     },
   };
 }

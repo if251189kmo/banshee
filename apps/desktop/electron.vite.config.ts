@@ -14,18 +14,27 @@ const { version } = JSON.parse(
 export default defineConfig({
   main: {},
   preload: {
-    // Ізольований preload (sandbox) вантажиться лише як CommonJS.
-    build: { rollupOptions: { output: { format: 'cjs' } } },
+    // Ізольований preload (sandbox) вантажиться лише як CommonJS. Два мости: вікна з core і вікно звуку.
+    build: {
+      rollupOptions: {
+        input: {
+          index: fileURLToPath(new URL('./src/preload/index.ts', import.meta.url)),
+          audio: fileURLToPath(new URL('./src/preload/audio.ts', import.meta.url)),
+        },
+        output: { format: 'cjs' },
+      },
+    },
   },
   renderer: {
     plugins: [react()],
     define: { __APP_VERSION__: JSON.stringify(version) },
-    // Дві сторінки: центр керування й оверлей.
+    // Три сторінки: центр керування, оверлей і приховане вікно звуку.
     build: {
       rollupOptions: {
         input: {
           index: fileURLToPath(new URL('./src/renderer/index.html', import.meta.url)),
           overlay: fileURLToPath(new URL('./src/renderer/overlay.html', import.meta.url)),
+          audio: fileURLToPath(new URL('./src/renderer/audio.html', import.meta.url)),
         },
       },
     },

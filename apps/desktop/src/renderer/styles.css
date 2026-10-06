@@ -680,6 +680,27 @@ fieldset.group label {
   background: var(--accent);
 }
 
+/* Голос: слухає команду — товсте кільце, що пульсує; розпізнає — пунктир. */
+.status-dot.listening {
+  border-width: 4px;
+  animation: pulse 0.8s ease-in-out infinite;
+}
+
+.status-dot.recognizing {
+  border-style: dotted;
+}
+
+button.icon.mic[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+}
+
+.heard {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 @keyframes pulse {
   50% {
     opacity: 0.4;

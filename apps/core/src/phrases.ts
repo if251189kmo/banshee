@@ -107,3 +107,12 @@ export const FAILURE_PHRASES = {
   undone: 'Скасовано.',
   done: 'Готово.',
 } as const;
+
+/**
+ * Питання підтвердження на голосову команду (02-voice.md, «Розпізнавання власника за голосом»):
+ * 🟡 — голосом «так» чи «ні»; 🔴 — лише кліком на картці.
+ */
+export function confirmQuestion(summary: string, byVoice: boolean): string {
+  const base = summary.trim().replace(/[.!?]+$/u, '');
+  return byVoice ? `${base}? Скажи «так» або «ні».` : `${base}. Підтверди кліком на картці.`;
+}

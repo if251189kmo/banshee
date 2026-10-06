@@ -164,10 +164,12 @@ describe('рушій ходів: без ШІ', () => {
   });
 
   it('базовий режим: команда без рутини — відповідь з причиною, 0 запитів', async () => {
-    const { db, engine, client, said } = await setup();
+    const { db, engine, client, said, events } = await setup();
     writeSetting(db, { key: 'ai.enabled', value: false, source: 'ui', confirmedBy: 'click' }, 'pc');
     await engine.command({ id: 't1', text: 'знайди моє резюме', source: 'text' });
     expect(said()).toEqual(['Без ШІ це не вмію. Увімкнути?']);
+    // Набрана в оверлеї команда — відповідь лише текстом.
+    expect(events.find((event) => event.type === 'say')).toMatchObject({ speak: false });
     expect(turnRows(db)).toEqual([{ route: 'none', outcome: 'no_ai', routine: 0 }]);
     expect(client?.requests).toEqual([]);
   });

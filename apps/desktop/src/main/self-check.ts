@@ -1,5 +1,6 @@
 // Перевірка програми (`--self-check`, крок 1.1): старт до готового core, вікно центру керування з
-// портом до core, команда без ШІ, перезапуск core після падіння, другий екземпляр, пам'ять.
+// портом до core, команда без ШІ, голос без мікрофона (етап 2), перезапуск core після падіння,
+// другий екземпляр, пам'ять.
 // Результат — desktop-check.json у теці Banshee. Запитів до API немає, стан ПК не змінюється:
 // команда — «котра година».
 import { spawn } from 'node:child_process';
@@ -16,6 +17,13 @@ export interface CheckTarget {
   readonly pcPids: readonly (number | null)[];
   secondInstances(): number;
   turnsDone(): number;
+  /** Голос: стан, причина збою, готовність від запуску, результат самоперевірки процесу voice. */
+  voice(): {
+    readonly state: string;
+    readonly problem: string | null;
+    readonly readyMs: number | null;
+    readonly selfTest: { heard: string | null; played: number } | null;
+  };
   crashCore(): void;
   openCenter(): BrowserWindow;
   command(text: string): void;
@@ -119,6 +127,30 @@ export async function runSelfCheck(target: CheckTarget, out: string): Promise<vo
       'хід «котра година» в головному процесі й у вікні',
     );
     result['commandMs'] = ms(sent, done);
+
+    // Голос без мікрофона: Banshee каже собі «Котра година?» і слухає це (02-voice.md).
+    await waitFor(
+      () => target.voice().selfTest !== null || target.voice().state === 'failed',
+      90_000,
+      'голос: самоперевірка',
+    ).catch(() => undefined);
+    const voice = target.voice();
+    result['voice'] = {
+      state: voice.state,
+      problem: voice.problem,
+      readyMs: voice.readyMs,
+      heard: voice.selfTest?.heard ?? null,
+      played: voice.selfTest?.played ?? 0,
+    };
+    if (voice.problem === 'Немає моделей голосу') {
+      // Встановлена програма без моделей: голос не перевіряється — це не збій програми.
+    } else if (voice.selfTest === null) {
+      problems.push(`голос не пройшов самоперевірку: ${voice.problem ?? voice.state}`);
+    } else if (!/котра година/iu.test(voice.selfTest.heard ?? '') || voice.selfTest.played === 0) {
+      problems.push(
+        `голос: почуто «${voice.selfTest.heard ?? ''}», озвучено ${String(voice.selfTest.played)}`,
+      );
+    }
 
     const readyBefore = target.coreReadyAt.length;
     const exitsBefore = target.coreExitAt.length;

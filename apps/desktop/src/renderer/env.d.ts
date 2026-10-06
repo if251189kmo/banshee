@@ -16,8 +16,14 @@ declare global {
     onUi(listener: (command: unknown) => void): () => void;
   }
 
+  /** Вікно звуку (src/preload/audio.ts): керування мікрофоном від головного процесу. */
+  interface BansheeAudioBridge {
+    onControl(listener: (control: unknown) => void): void;
+  }
+
   interface Window {
     readonly banshee: BansheeBridge;
+    readonly bansheeAudio: BansheeAudioBridge;
   }
 }
 

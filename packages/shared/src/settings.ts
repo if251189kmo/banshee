@@ -162,6 +162,14 @@ export const SETTINGS = {
     hidden: true,
   }),
 
+  'voice.enabled': setting({
+    scope: 'device',
+    label: 'Голосові команди',
+    description:
+      'Banshee слухає мікрофон: слово «Banshee» і кнопка мікрофона в оверлеї. Вимкнено — лише текст, мікрофон закритий.',
+    schema: z.boolean(),
+    defaultValue: false,
+  }),
   'voice.wakeSensitivity': setting({
     scope: 'user',
     label: 'Чутливість слова «Banshee»',
@@ -227,7 +235,8 @@ export const SETTINGS = {
   'voice.speakAnswers': setting({
     scope: 'user',
     label: 'Озвучувати відповіді',
-    description: 'Вимкнено — відповіді лише текстом в оверлеї.',
+    description:
+      'На голосові команди Banshee відповідає голосом; вимкнено — лише текстом в оверлеї. На набрані в оверлеї — завжди текстом.',
     schema: z.boolean(),
     defaultValue: true,
     voice: true,

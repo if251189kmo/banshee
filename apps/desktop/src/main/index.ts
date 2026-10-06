@@ -12,6 +12,7 @@ import {
   PROTOCOL_VERSION,
   ulid,
   type AiState,
+  type ControlFromVoice,
   type ControlToCore,
   type CoreMessage,
   type DesktopMessage,
@@ -41,6 +42,7 @@ import {
 } from 'electron';
 import corePath from '../core/core.ts?modulePath';
 import pcPath from '../pc/pc.ts?modulePath';
+import voicePath from '../voice/voice.ts?modulePath';
 import { EXTERNAL_LINKS, uiToMain, type Section, type UiToWindow } from '../shared/ui.ts';
 import { aboutInfo, collectDiagnostics } from './about.ts';
 import { eraseScript, eraseTarget } from './erase.ts';
@@ -56,6 +58,7 @@ import { runSelfCheck } from './self-check.ts';
 import { runShots } from './shots.ts';
 import { MAX_CRASHES, Supervisor, type ChildHandle } from './supervisor.ts';
 import { trayView, type TrayIcon } from './tray-view.ts';
+import { VoiceHost, type VoiceHostState } from './voice.ts';
 
 /** Знімки інтерфейсу для перевірки вигляду — теж в окремій теці й без ключа. */
 const UI_SHOTS = process.argv.includes('--ui-shots');
@@ -98,6 +101,9 @@ const coreExitAt: number[] = [];
 const pcPids: (number | null)[] = [];
 let turnsDone = 0;
 let lastDiagnostics: string | null = null;
+let audioWindow: BrowserWindow | null = null;
+let voiceSelfTest: Extract<ControlFromVoice, { type: 'voice.selfTest' }> | null = null;
+let voiceReadyAt: number | null = null;
 const replies = new Map<string, (reply: Extract<CoreMessage, { type: 'reply' }>) => void>();
 
 const supervisor = new Supervisor({
@@ -112,6 +118,29 @@ const supervisor = new Supervisor({
     if (recent >= MAX_CRASHES) {
       notify('Ядро Banshee зупинилося після 3 збоїв за хвилину. Перезапусти його з меню в треї.');
     }
+  },
+});
+
+/** Голос (02-voice.md, «Реалізація — етап 2»); перевірка програми — без мікрофона й динаміків. */
+const voice = new VoiceHost({
+  script: voicePath,
+  appVersion: app.getVersion(),
+  modelsDir: paths.models,
+  dataDir: paths.data,
+  logsDir: paths.logs,
+  log,
+  selfTest: SELF_CHECK,
+  attachCore: (port) => {
+    if (!core) return false;
+    post(core, { type: 'core.attach', client: 'voice' }, [port]);
+    return true;
+  },
+  createAudioWindow: () => (SELF_CHECK ? null : createAudioWindow()),
+  onState: (state, speaking) => {
+    onVoiceState(state, speaking);
+  },
+  onMessage: (message) => {
+    onVoiceMessage(message);
   },
 });
 
@@ -180,6 +209,7 @@ function spawnCore(): ChildHandle {
   for (const win of windows.keys()) {
     if (!win.webContents.isLoading()) connectWindow(win);
   }
+  voice.coreRestarted();
   // Жорстко, як справжнє падіння: м'яке kill() Electron інколи чекає до 2 с.
   return {
     kill: () => {
@@ -243,6 +273,12 @@ function applySetting(key: SettingKey): void {
         app.setLoginItemSettings({ openAtLogin: settings['general.autostart'], name: 'Banshee' });
       }
       return;
+    case 'voice.enabled':
+    case 'voice.microphone':
+    case 'voice.speakers':
+      applyVoice();
+      registerShortcuts();
+      return;
     case 'general.setupDone':
       if (!settings['general.setupDone'] && !wizardOffered && !SELF_CHECK) {
         wizardOffered = true;
@@ -254,7 +290,7 @@ function applySetting(key: SettingKey): void {
   }
 }
 
-/** Оверлей і «стоп». Пауза мікрофона — з етапу 2: до того її поєднання в інших програмах не чіпаємо. */
+/** Оверлей, «стоп» і пауза мікрофона. */
 function registerShortcuts(): void {
   if (!settings || SELF_CHECK) return;
   globalShortcut.unregisterAll();
@@ -270,7 +306,10 @@ function registerShortcuts(): void {
   bind(hotkeys.overlay, toggleOverlay);
   bind(hotkeys.stop, () => {
     send({ type: 'stop' });
+    voice.hush();
   });
+  // Пауза мікрофона — лише коли голос увімкнено: інакше її поєднання в інших програмах не чіпаємо.
+  if (settings['voice.enabled']) bind(hotkeys.micPause, toggleMicPause);
   if (busy.length > 0) {
     log.warn('hotkeys.busy', { keys: busy.join(', ') });
     notify(`Гаряча клавіша ${busy.join(', ')} зайнята іншою програмою — зміни її в налаштуваннях.`);
@@ -437,14 +476,19 @@ function ensureOverlay(): BrowserWindow {
   return win;
 }
 
-/** Оверлей — на моніторі з курсором: активне вікно іншої програми Electron не бачить. */
-function showOverlay(): void {
+/**
+ * Оверлей — на моніторі з курсором: активне вікно іншої програми Electron не бачить.
+ * focus = false — слово «Banshee»: показати, що слухає, не забираючи фокус у програми власника.
+ */
+function showOverlay(focus = true): void {
   const win = ensureOverlay();
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   win.setBounds(overlayBounds(display.workArea, overlayHeight));
-  win.show();
-  win.focus();
-  toWindow(win, { type: 'overlay.shown' });
+  if (focus) {
+    win.show();
+    win.focus();
+    toWindow(win, { type: 'overlay.shown' });
+  } else win.showInactive();
 }
 
 function toggleOverlay(): void {
@@ -486,6 +530,9 @@ ipcMain.on('ui', (event, data: unknown) => {
       return;
     case 'diagnostics.show':
       if (lastDiagnostics) shell.showItemInFolder(lastDiagnostics);
+      return;
+    case 'voice.listen':
+      voice.listen();
       return;
   }
 });
@@ -535,6 +582,105 @@ ipcMain.handle('ui:diagnostics', async (event) => {
   return lastDiagnostics;
 });
 
+/** «Голосові команди», мікрофон і динаміки з налаштувань. Перевірка програми вмикає голос сама. */
+function applyVoice(): void {
+  if (!settings || UI_SHOTS) return;
+  if (settings['voice.enabled'] || SELF_CHECK)
+    voice.enable({
+      microphone: settings['voice.microphone'],
+      speakers: settings['voice.speakers'],
+    });
+  else void voice.disable();
+}
+
+function toggleMicPause(): void {
+  voice.setPaused(!voice.isPaused);
+  notify(voice.isPaused ? 'Мікрофон на паузі.' : 'Мікрофон знову слухає.');
+}
+
+const VOICE_TEXT: Record<VoiceHostState, string> = {
+  off: '',
+  failed: 'голос не працює',
+  loading: 'голос завантажується',
+  idle: 'слухає слово «Banshee»',
+  listening: 'слухає команду',
+  recognizing: 'розпізнає',
+  busy: 'виконує',
+  followUp: 'слухає продовження',
+  paused: 'мікрофон на паузі',
+};
+
+function onVoiceState(state: VoiceHostState, speaking: boolean): void {
+  const message = { type: 'voice', state, speaking, problem: voice.problem } as const;
+  for (const win of windows.keys()) toWindow(win, message);
+  // Слово «Banshee» — оверлей показує, що Banshee слухає, але фокус не забирає.
+  if (state === 'listening' && !SELF_CHECK && !overlay?.isVisible()) showOverlay(false);
+  refreshTray();
+}
+
+function onVoiceMessage(message: ControlFromVoice): void {
+  switch (message.type) {
+    case 'voice.started':
+      voiceReadyAt = performance.now();
+      return;
+    case 'voice.heard':
+      if (overlay) toWindow(overlay, message);
+      return;
+    case 'voice.capture':
+      if (!message.ok) {
+        log.warn('voice.capture', { error: message.error ?? '' });
+        notify(
+          'Мікрофон не відкрився. Перевір у Windows: Параметри → Конфіденційність → Мікрофон → доступ для класичних програм.',
+        );
+      }
+      return;
+    case 'voice.failed':
+      notify(
+        message.missing.length > 0
+          ? 'Голос не запустився: немає моделей голосу в теці models.'
+          : `Голос не запустився: ${message.error}`,
+      );
+      return;
+    case 'voice.selfTest':
+      voiceSelfTest = message;
+      return;
+    default:
+      return;
+  }
+}
+
+/** Приховане вікно звуку: мікрофон і озвучка в одному renderer — для ехоподавлення. */
+function createAudioWindow(): BrowserWindow {
+  const win = new BrowserWindow({
+    show: false,
+    width: 320,
+    height: 120,
+    skipTaskbar: true,
+    title: 'Banshee — звук',
+    webPreferences: {
+      preload: join(import.meta.dirname, '../preload/audio.cjs'),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      spellcheck: false,
+      backgroundThrottling: false,
+      autoplayPolicy: 'no-user-gesture-required',
+    },
+  });
+  audioWindow = win;
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (event) => {
+    event.preventDefault();
+  });
+  win.on('closed', () => {
+    if (audioWindow === win) audioWindow = null;
+  });
+  const devUrl = process.env['ELECTRON_RENDERER_URL'];
+  if (!app.isPackaged && devUrl) void win.loadURL(`${devUrl}/audio.html`);
+  else void win.loadFile(join(import.meta.dirname, '../renderer', 'audio.html'));
+  return win;
+}
+
 function notify(text: string): void {
   log.info('notice', { text });
   if (SELF_CHECK || !Notification.isSupported()) return;
@@ -545,12 +691,26 @@ function refreshTray(): void {
   if (!tray || !icons) return;
   const view = trayView(supervisor.state, aiState);
   tray.setImage(icons[view.icon]);
-  tray.setToolTip(view.tooltip);
+  const voiceText = VOICE_TEXT[voice.state];
+  tray.setToolTip(voiceText ? `${view.tooltip} · ${voiceText}` : view.tooltip);
   const items: MenuItemConstructorOptions[] = [
     {
       label: `Оверлей (${settings?.['general.hotkeys'].overlay ?? 'Ctrl+Shift+B'})`,
-      click: showOverlay,
+      click: () => {
+        showOverlay();
+      },
     },
+    ...(voice.state === 'off'
+      ? []
+      : [
+          {
+            label: `Пауза мікрофона (${settings?.['general.hotkeys'].micPause ?? 'Ctrl+Shift+M'})`,
+            type: 'checkbox' as const,
+            checked: voice.isPaused,
+            enabled: voice.state !== 'failed' && voice.state !== 'loading',
+            click: toggleMicPause,
+          },
+        ]),
     {
       label: 'Використовувати ШІ',
       type: 'checkbox',
@@ -586,11 +746,23 @@ function refreshTray(): void {
 function start(): void {
   log.info('desktop.start', { version: app.getVersion(), packaged: app.isPackaged });
   Menu.setApplicationMenu(null);
-  // Мікрофон і решта дозволів — з етапу 2; до того сторінкам не дозволено нічого.
-  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => {
-    callback(false);
+  // Мікрофон — лише прихованому вікну звуку й лише звук; решті сторінок не дозволено нічого.
+  const isAudio = (contents: Electron.WebContents | null): boolean =>
+    contents !== null && audioWindow !== null && !audioWindow.isDestroyed()
+      ? contents.id === audioWindow.webContents.id
+      : false;
+  session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+    const types = 'mediaTypes' in details ? (details.mediaTypes ?? []) : [];
+    callback(
+      permission === 'media' &&
+        isAudio(contents) &&
+        types.length > 0 &&
+        types.every((type) => type === 'audio'),
+    );
   });
-  session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.setPermissionCheckHandler(
+    (contents, permission) => permission === 'media' && isAudio(contents),
+  );
   icons = {
     idle: nativeImage.createFromPath(resource('tray-idle.png')),
     basic: nativeImage.createFromPath(resource('tray-basic.png')),
@@ -635,6 +807,12 @@ function start(): void {
         pcPids,
         secondInstances: () => secondInstances,
         turnsDone: () => turnsDone,
+        voice: () => ({
+          state: voice.state,
+          problem: voice.problem,
+          readyMs: voiceReadyAt === null ? null : Math.round(voiceReadyAt - launchedAt),
+          selfTest: voiceSelfTest,
+        }),
         crashCore: () => {
           supervisor.crash();
         },
@@ -669,14 +847,15 @@ if (!app.requestSingleInstanceLock()) {
     if (quitting) return;
     event.preventDefault();
     quitting = true;
-    void supervisor
-      .stop(() => {
+    void Promise.all([
+      voice.stop(),
+      supervisor.stop(() => {
         if (core) post(core, { type: 'core.stop' });
-      })
-      .finally(() => {
-        log.info('desktop.quit');
-        app.quit();
-      });
+      }),
+    ]).finally(() => {
+      log.info('desktop.quit');
+      app.quit();
+    });
   });
   // ESM без top-level await навколо whenReady: подія ready настає лише після завантаження модуля.
   void app.whenReady().then(start);

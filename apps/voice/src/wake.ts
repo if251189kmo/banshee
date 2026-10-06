@@ -5,6 +5,7 @@
 import { readFile } from 'node:fs/promises';
 import ort from 'onnxruntime-node';
 import { CHUNK } from './audio.ts';
+export { WAKE_THRESHOLDS } from './thresholds.ts';
 
 const MEL_WINDOW = 76;
 const MEL_BINS = 32;
@@ -201,9 +202,6 @@ export function createStreamingFeatures(
 
 /** Поріг обрізання — від найгучнішого кадру за останні 3 с, як у доповнених кліпах навчання. */
 export const WAKE_CONTEXT_CHUNKS = 38;
-
-/** Поріг слова за чутливістю з налаштувань: вища чутливість — нижчий поріг. */
-export const WAKE_THRESHOLDS = { low: 0.99, medium: 0.97, high: 0.9 } as const;
 
 export interface WakeDetector {
   /** Оцінка слова для кроку 80 мс (−1…1) або null, поки ознак замало. */

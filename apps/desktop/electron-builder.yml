@@ -17,10 +17,17 @@ files:
   - '!**/node_modules/better-sqlite3/src/**'
   - '!**/node_modules/better-sqlite3/prebuilds/{darwin,linux,linuxmusl}-*.node'
   - '!**/node_modules/better-sqlite3/prebuilds/win32-arm64.node'
+  # onnxruntime-node (модель слова): лише збірка для Windows x64 — решта платформ ≈ 220 МБ.
+  - '!**/node_modules/onnxruntime-node/bin/napi-v6/{darwin,linux}/**'
+  - '!**/node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**'
 asar: true
-# Іконки сповіщень Windows читає з файлу, а не з asar.
 asarUnpack:
+  # Іконки сповіщень Windows читає з файлу, а не з asar.
   - resources/**
+  # Нативні модулі голосу вантажать DLL поруч із собою — з asar їх не завантажити.
+  - '**/node_modules/onnxruntime-node/**'
+  - '**/node_modules/sherpa-onnx-node/**'
+  - '**/node_modules/sherpa-onnx-win-x64/**'
 # Electron — той самий, що в розробці: без завантаження й перезбирання нативних модулів (Node-API).
 electronDist: ../../node_modules/electron/dist
 electronVersion: 44.5.1

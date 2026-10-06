@@ -40,7 +40,8 @@
     "desktop:icons": "node apps/desktop/scripts/icons.ts",
     "desktop:shots": "node scripts/desktop.ts shots",
     "dist": "node scripts/desktop.ts dist",
-    "voice:check": "node apps/voice/scripts/check.ts"
+    "voice:check": "node apps/voice/scripts/check.ts",
+    "voice:dev-setup": "node apps/voice/scripts/dev-setup.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

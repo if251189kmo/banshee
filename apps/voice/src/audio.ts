@@ -72,3 +72,20 @@ export function encodeWav(samples: Float32Array, sampleRate: number): Buffer {
   });
   return buffer;
 }
+
+/** Лінійне перетворення частоти: озвучка Piper (22 кГц) → 16 кГц для перевірки програми. */
+export function resample(samples: Float32Array, from: number, to: number): Float32Array {
+  if (from === to) return samples;
+  const length = Math.floor((samples.length * to) / from);
+  const out = new Float32Array(length);
+  const ratio = from / to;
+  for (let index = 0; index < length; index += 1) {
+    const position = index * ratio;
+    const left = Math.floor(position);
+    const fraction = position - left;
+    const a = samples[left] ?? 0;
+    const b = samples[left + 1] ?? a;
+    out[index] = a + (b - a) * fraction;
+  }
+  return out;
+}

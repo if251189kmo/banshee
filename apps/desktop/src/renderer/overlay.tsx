@@ -7,7 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { uiToWindow } from '../shared/ui.ts';
 import { ConfirmCard } from './components/ConfirmCard.tsx';
 import { BasicModeAction, TurnCard } from './components/TurnCard.tsx';
-import { core, onCoreMessage, sendCommand, useCoreState } from './core-client.ts';
+import { core, noteCommand, onCoreMessage, sendCommand, useCoreState } from './core-client.ts';
 import './styles.css';
 
 /** Ховається після стількох мілісекунд без дій, якщо курсор не над оверлеєм. */
@@ -26,6 +26,9 @@ function Overlay() {
   const [text, setText] = useState('');
   const [shownAt, setShownAt] = useState(() => Date.now());
   const [showCost, setShowCost] = useState(false);
+  const [voice, setVoice] = useState<VoiceView>({ state: 'off', problem: null });
+  /** Відповідь «так» / «ні» на картку голосом — що почув Banshee. */
+  const [heard, setHeard] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const lastActivity = useRef(Date.now());
@@ -38,11 +41,24 @@ function Overlay() {
   useEffect(() => {
     const off = window.banshee.onUi((data) => {
       const parsed = uiToWindow.safeParse(data);
-      if (parsed.success && parsed.data.type === 'overlay.shown') {
+      if (!parsed.success) return;
+      const command = parsed.data;
+      if (command.type === 'overlay.shown') {
         setShownAt(Date.now());
         touch();
         input.current?.focus();
         input.current?.select();
+      } else if (command.type === 'voice') {
+        setVoice({ state: command.state, problem: command.problem });
+        if (command.state === 'listening') {
+          setShownAt(Date.now());
+          setHeard(null);
+          touch();
+        }
+      } else if (command.type === 'voice.heard') {
+        touch();
+        if (command.turnId) noteCommand(command.turnId, command.text);
+        else setHeard(command.text);
       }
     });
     const offCore = onCoreMessage((message: CoreMessage) => {
@@ -115,8 +131,16 @@ function Overlay() {
     (latest.text === null || Date.now() - shownAt < STALE_TURN_MS || latest.state !== 'done')
       ? latest
       : null;
+  const listening = voice.state === 'listening' || voice.state === 'followUp';
   const indicator =
-    state.connection !== 'ready' ? 'offline' : busy ? (latest?.state ?? 'thinking') : 'idle';
+    state.connection !== 'ready'
+      ? 'offline'
+      : voice.state === 'listening' || voice.state === 'recognizing'
+        ? voice.state
+        : busy
+          ? (latest?.state ?? 'thinking')
+          : 'idle';
+  const micReady = voice.state !== 'off' && voice.state !== 'failed' && voice.state !== 'loading';
 
   return (
     <div
@@ -151,10 +175,21 @@ function Overlay() {
           autoComplete="off"
           autoFocus
         />
-        <button type="button" className="icon" disabled title="Голос — з наступної версії">
+        <button
+          type="button"
+          className="icon mic"
+          disabled={!micReady}
+          aria-pressed={listening}
+          title={MIC_TITLE[voice.state] ?? voice.problem ?? ''}
+          onClick={() => {
+            window.banshee.ui({ type: 'voice.listen' });
+            touch();
+          }}
+        >
           🎙
         </button>
       </form>
+      {heard ? <p className="heard">Почуто: «{heard}»</p> : null}
       {state.confirmations.map((request, index) => (
         <ConfirmCard key={request.requestId} request={request} active={index === 0} />
       ))}
@@ -169,8 +204,26 @@ function Overlay() {
   );
 }
 
+interface VoiceView {
+  readonly state: string;
+  readonly problem: string | null;
+}
+
+const MIC_TITLE: Record<string, string> = {
+  off: 'Голосові команди вимкнено — Налаштування → Голос',
+  loading: 'Голос завантажується…',
+  idle: 'Сказати команду без слова «Banshee»',
+  listening: 'Слухаю…',
+  recognizing: 'Розпізнаю…',
+  busy: 'Сказати нову команду',
+  followUp: 'Слухаю продовження…',
+  paused: 'Мікрофон на паузі — натисни, щоб сказати команду',
+};
+
 const STATUS_LABEL: Record<string, string> = {
   offline: 'Ядро не підключено',
+  listening: 'Слухаю',
+  recognizing: 'Розпізнаю',
   idle: 'Готовий',
   thinking: 'Думає',
   acting: 'Виконує',

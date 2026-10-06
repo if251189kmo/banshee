@@ -1,6 +1,7 @@
 // Команди між вікнами й головним процесом desktop (не core): сховати оверлей і підігнати його висоту,
 // відкрити розділ центру керування, відкрити посилання в браузері. Перевіряються схемою на вході:
 // сторінка не може попросити головний процес відкрити довільну адресу.
+import { VOICE_STATES } from '@banshee/shared';
 import { z } from '@banshee/shared/zod';
 
 /** Розділи центру керування (.claude/logic/09-ui.md); `wizard` — майстер першого запуску. */
@@ -43,6 +44,8 @@ export const uiToMain = z.discriminatedUnion('type', [
   z.object({ type: z.literal('folder.open') }),
   /** Останній зібраний архів діагностики — у Провіднику. */
   z.object({ type: z.literal('diagnostics.show') }),
+  /** Кнопка мікрофона в оверлеї: слухати команду без слова «Banshee». */
+  z.object({ type: z.literal('voice.listen') }),
 ]);
 
 /** Запити сторінки до головного процесу з відповіддю (ipcRenderer.invoke). */
@@ -54,5 +57,19 @@ export const uiToWindow = z.discriminatedUnion('type', [
   /** Оверлей щойно показано: фокус у поле команди. */
   z.object({ type: z.literal('overlay.shown') }),
   z.object({ type: z.literal('center.section'), section, anchor: z.string().optional() }),
+  /** Стан голосу для оверлея й центру керування; off — вимкнено, failed — не працює (problem). */
+  z.object({
+    type: z.literal('voice'),
+    state: z.enum([...VOICE_STATES, 'off', 'failed']),
+    speaking: z.boolean(),
+    problem: z.string().nullable(),
+  }),
+  /** Що почув Banshee: команда (з ходом) або «так» / «ні» на картку. */
+  z.object({
+    type: z.literal('voice.heard'),
+    turnId: z.string().optional(),
+    text: z.string(),
+    owner: z.boolean().nullable(),
+  }),
 ]);
 export type UiToWindow = z.output<typeof uiToWindow>;

@@ -30,7 +30,7 @@ import type { ModelClient } from './brain/model-client.ts';
 import { buildSystem } from './brain/prompt.ts';
 import { formatOwnerTurn, localDateTime } from './brain/turn-line.ts';
 import type { Db } from './db/database.ts';
-import { FAILURE_PHRASES, routinePhrase, systemInfoPhrase } from './phrases.ts';
+import { confirmQuestion, FAILURE_PHRASES, routinePhrase, systemInfoPhrase } from './phrases.ts';
 import { readSettings, writeSetting } from './settings/store.ts';
 import { aliasPronunciations } from './speech/pronunciations.ts';
 import { speechText } from './speech/speech.ts';
@@ -102,6 +102,8 @@ export class Engine {
   private readonly deps: EngineDeps;
   private episode: Episode | null = null;
   private running: Running | null = null;
+  /** Звідки команда ходу: відповідь на голосову — голосом (say). */
+  private readonly sources = new Map<string, TurnSource>();
   private apiProblem: { problem: ApiProblem; at: number; until?: string } | null = null;
   private extra = { day: '', usd: 0 };
   private lastState: AiState | null = null;
@@ -282,8 +284,13 @@ export class Engine {
     return this.episode;
   }
 
-  /** Відповідь в оверлей; для голосу — ще й текст для озвучки (02-voice.md, «Текст для озвучки»). */
-  private say(turnId: string, text: string, speak = true): void {
+  /**
+   * Відповідь в оверлей; на голосову команду — ще й голосом, якщо «Озвучувати відповіді» ввімкнено,
+   * з текстом для озвучки (02-voice.md, «Текст для озвучки»). На набрану в оверлеї — лише текст.
+   */
+  private say(turnId: string, text: string, speakable = true): void {
+    const speak =
+      speakable && this.sources.get(turnId) === 'voice' && this.settings()['voice.speakAnswers'];
     if (!speak) {
       this.deps.emit({ type: 'say', turnId, text, speak, done: true });
       return;
@@ -309,6 +316,9 @@ export class Engine {
         timeoutSec: request.timeoutSec,
         armDelaySec: request.armDelaySec,
       });
+      // Голосова команда: питання ще й голосом, бо картку власник може не бачити.
+      if (this.sources.get(turnId) === 'voice')
+        this.say(turnId, confirmQuestion(request.summary, request.methods.includes('voice')));
       return new Promise<{ approved: boolean; method: ConfirmMethod | null }>((resolve) => {
         const timer = setTimeout(() => {
           this.confirmations.delete(requestId);
@@ -379,6 +389,7 @@ export class Engine {
 
   /** Команда власника — від початку до `turn.done`. */
   async command(command: Command): Promise<void> {
+    this.sources.set(command.id, command.source);
     const previous = this.running;
     if (previous) {
       if (previous.acting) {
@@ -400,6 +411,7 @@ export class Engine {
       await this.handle(command, running);
     } finally {
       if (this.running === running) this.running = null;
+      this.sources.delete(command.id);
       finish();
     }
   }

@@ -8,12 +8,15 @@
   "main": "out/main/index.js",
   "dependencies": {
     "@napi-rs/keyring": "^2.1.0",
-    "better-sqlite3": "^13.0.3"
+    "better-sqlite3": "^13.0.3",
+    "onnxruntime-node": "^1.30.0",
+    "sherpa-onnx-node": "^1.13.8"
   },
   "devDependencies": {
     "@banshee/core": "0.0.0",
     "@banshee/pc": "0.0.0",
     "@banshee/shared": "0.0.0",
+    "@banshee/voice": "0.0.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "5.2.0",

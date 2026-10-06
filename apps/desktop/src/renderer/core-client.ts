@@ -52,6 +52,11 @@ export function useCoreState(): CoreState {
   return useSyncExternalStore(subscribeState, () => state);
 }
 
+/** Хід, який почала голосова команда: текст показує оверлей, як і для набраної. */
+export function noteCommand(id: string, text: string): void {
+  dispatch({ type: 'sent', id, text });
+}
+
 /** Команда з цієї сторінки: хід з текстом команди. */
 export function sendCommand(text: string, source: 'text' = 'text'): string {
   const id = ulid();
