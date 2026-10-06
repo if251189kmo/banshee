@@ -62,7 +62,7 @@ async function selfTest(started: StartedVoice): Promise<void> {
   const spoken = await started.synthesize('Котра година?');
   const samples = spoken ? resample(spoken.samples, spoken.sampleRate, SAMPLE_RATE) : null;
   if (!samples) {
-    post({ type: 'voice.selfTest', heard: null, sttMs: null, played: 0 });
+    post({ type: 'voice.selfTest', heard: null, sttMs: null, played: 0, enrolled: false });
     return;
   }
   started.service.listenNow();
@@ -79,7 +79,31 @@ async function selfTest(started: StartedVoice): Promise<void> {
     (started.service.state === 'busy' || started.service.speaking)
   )
     await new Promise((resolve) => setTimeout(resolve, 50));
-  post({ type: 'voice.selfTest', heard: selfHeard, sttMs: null, played: selfPlayed });
+  const enrolled = await selfEnroll(started);
+  post({ type: 'voice.selfTest', heard: selfHeard, sttMs: null, played: selfPlayed, enrolled });
+}
+
+/** «Мій голос» трьома фразами озвучки: запис, відбитки, збереження профілю в теці перевірки. */
+async function selfEnroll(started: StartedVoice): Promise<boolean> {
+  const phrases = [
+    'Перевіряю запис голосу для профілю власника.',
+    'Друга фраза: команди чужим голосом не виконуються.',
+    'Третя фраза: аудіо не зберігається, лише числа.',
+  ];
+  for (const phrase of phrases) {
+    const spoken = await started.synthesize(phrase);
+    if (!spoken) return false;
+    const samples = resample(spoken.samples, spoken.sampleRate, SAMPLE_RATE);
+    started.service.enroll('start');
+    for (let offset = 0; offset + CHUNK <= samples.length; offset += CHUNK)
+      started.service.audio({ type: 'audio', samples: samples.slice(offset, offset + CHUNK) });
+    started.service.enroll('stop');
+  }
+  started.service.enroll('finish');
+  const until = performance.now() + 5000;
+  while (performance.now() < until && !started.service.hasProfile)
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  return started.service.hasProfile;
 }
 
 let selfHeard: string | null = null;
@@ -170,6 +194,9 @@ process.parentPort.on('message', (event) => {
       return;
     case 'voice.hush':
       voice?.service.hush();
+      return;
+    case 'voice.enroll':
+      voice?.service.enroll(message.action);
       return;
     case 'voice.pc':
       voice?.service.pcState({ inCall: message.inCall, active: message.active });

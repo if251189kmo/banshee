@@ -15,7 +15,7 @@ export interface Synthesizer {
 
 /**
  * espeakDir — дані вимови espeak-ng: у програмі — урізані до української (resources\espeak-ng-data,
- * 649 КБ замість 18 МБ; звук той самий до відліку).
+ * 813 КБ замість 18 МБ). en_dict потрібен і українському голосу — без нього espeak падав на «…п'ятдесят вісім.».
  */
 export async function loadSynthesizer(
   dir: string,

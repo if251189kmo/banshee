@@ -49,6 +49,11 @@ export const uiToMain = z.discriminatedUnion('type', [
   z.object({ type: z.literal('voice.listen') }),
   /** Завантажити моделі голосу, яких бракує (Налаштування → Голос). */
   z.object({ type: z.literal('voice.download') }),
+  /** «Мій голос»: почати фразу, фразу сказано, зберегти профіль, скасувати. */
+  z.object({
+    type: z.literal('voice.enroll'),
+    action: z.enum(['start', 'stop', 'finish', 'cancel']),
+  }),
 ]);
 
 /** Запити сторінки до головного процесу з відповіддю (ipcRenderer.invoke). */
@@ -73,6 +78,15 @@ export const uiToWindow = z.discriminatedUnion('type', [
     state: z.enum(['running', 'done', 'failed']),
     done: z.number().min(0),
     total: z.number().min(0),
+    error: z.string().optional(),
+  }),
+  /** «Мій голос»: перебіг запису. */
+  z.object({
+    type: z.literal('voice.enrollment'),
+    state: z.enum(['recording', 'phrase', 'saved', 'cancelled', 'failed']),
+    phrases: z.number().int().min(0),
+    ok: z.boolean().optional(),
+    seconds: z.number().min(0).optional(),
     error: z.string().optional(),
   }),
   /** Що почув Banshee: команда (з ходом) або «так» / «ні» на картку. */

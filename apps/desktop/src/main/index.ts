@@ -571,6 +571,9 @@ ipcMain.on('ui', (event, data: unknown) => {
     case 'voice.download':
       void downloadVoiceModels();
       return;
+    case 'voice.enroll':
+      voice.enroll(command.action);
+      return;
   }
 });
 
@@ -739,6 +742,7 @@ const VOICE_TEXT: Record<VoiceHostState, string> = {
   busy: 'виконує',
   followUp: 'слухає продовження',
   paused: 'мікрофон на паузі',
+  enrolling: 'записує мій голос',
 };
 
 function onVoiceState(state: VoiceHostState, speaking: boolean): void {
@@ -775,6 +779,10 @@ function onVoiceMessage(message: ControlFromVoice): void {
       return;
     case 'voice.selfTest':
       voiceSelfTest = message;
+      return;
+    case 'voice.enrollment':
+      if (message.state === 'saved' && voiceInfo) voiceInfo = { ...voiceInfo, profile: true };
+      broadcast(message);
       return;
     default:
       return;

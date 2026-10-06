@@ -15,6 +15,7 @@ export const VOICE_STATES = [
   'busy',
   'followUp',
   'paused',
+  'enrolling',
 ] as const;
 export type VoiceState = (typeof VOICE_STATES)[number];
 
@@ -50,6 +51,14 @@ const voiceStop = z.object({ type: z.literal('voice.stop') });
  * текстом; active — введення з клавіатури чи миші за останні 15 хв («Слухати, лише коли ПК активний»).
  */
 const voicePc = z.object({ type: z.literal('voice.pc'), inCall: z.boolean(), active: z.boolean() });
+/**
+ * «Мій голос» (крок 2.4): start — почати фразу, stop — фразу сказано, finish — зберегти профіль,
+ * cancel — нічого не зберігати. Фрази живуть лише в пам'яті процесу voice.
+ */
+const voiceEnroll = z.object({
+  type: z.literal('voice.enroll'),
+  action: z.enum(['start', 'stop', 'finish', 'cancel']),
+});
 
 export const controlToVoice = z.discriminatedUnion('type', [
   voiceInit,
@@ -59,6 +68,7 @@ export const controlToVoice = z.discriminatedUnion('type', [
   voiceHush,
   voiceStop,
   voicePc,
+  voiceEnroll,
 ]);
 export type ControlToVoice = z.output<typeof controlToVoice>;
 export type VoiceInit = z.output<typeof voiceInit>;
@@ -96,12 +106,23 @@ const voiceCapture = z.object({
   ok: z.boolean(),
   error: z.string().optional(),
 });
+/** «Мій голос»: перебіг запису. phrases — скільки фраз уже прийнято. */
+const voiceEnrollment = z.object({
+  type: z.literal('voice.enrollment'),
+  state: z.enum(['recording', 'phrase', 'saved', 'cancelled', 'failed']),
+  phrases: z.number().int().min(0),
+  ok: z.boolean().optional(),
+  seconds: z.number().min(0).optional(),
+  error: z.string().optional(),
+});
 /** Перевірка програми: що пройшло через конвеєр. */
 const voiceSelfTest = z.object({
   type: z.literal('voice.selfTest'),
   heard: z.string().nullable(),
   sttMs: z.number().nullable(),
   played: z.number().int(),
+  /** «Мій голос» трьома фразами озвучки: профіль збережено (у теці перевірки). */
+  enrolled: z.boolean(),
 });
 
 export const controlFromVoice = z.discriminatedUnion('type', [
@@ -110,6 +131,7 @@ export const controlFromVoice = z.discriminatedUnion('type', [
   voiceStateMessage,
   voiceHeard,
   voiceCapture,
+  voiceEnrollment,
   voiceSelfTest,
 ]);
 export type ControlFromVoice = z.output<typeof controlFromVoice>;

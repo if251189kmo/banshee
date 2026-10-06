@@ -3,6 +3,7 @@
 // модель слова «Banshee» і профіль голосу власника.
 import { useCallback, useEffect, useState } from 'react';
 import { uiToWindow } from '../../shared/ui.ts';
+import { MyVoice } from './MyVoice.tsx';
 
 interface ModelsInfo {
   readonly missingFiles: number;
@@ -129,15 +130,12 @@ export function VoiceCard() {
           {info.voice ? (
             <ul className="facts-list">
               <li>Слово «Banshee»: {WAKE_TEXT[info.voice.wakeModel]}.</li>
-              <li>
-                Мій голос:{' '}
-                {info.voice.profile
-                  ? 'записано — команди чужим голосом не виконуються'
-                  : 'не записано — команди не перевіряються за голосом'}
-                .
-              </li>
             </ul>
           ) : null}
+          <MyVoice
+            ready={!['off', 'loading', 'failed'].includes(voice.state)}
+            recorded={info.voice?.profile === true}
+          />
           <p className="muted small">
             Тека моделей: <code>{info.folder}</code>
           </p>

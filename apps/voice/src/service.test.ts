@@ -317,3 +317,84 @@ describe('стан ПК', () => {
     expect(service.state).toBe('listening');
   });
 });
+
+describe('мій голос', () => {
+  function enrollService() {
+    const main: ControlFromVoice[] = [];
+    const saved: { vector: Float32Array; phrases: number }[] = [];
+    const service = new VoiceService({
+      engines: {
+        wake: () => Promise.resolve(null),
+        speech: (chunk) => (chunk[1] ?? 0) > 0,
+        recognize: () => Promise.resolve(''),
+        embed: () => Float32Array.from([1, 0, 0]),
+        synthesize: () => Promise.resolve(null),
+        sampleRate: 22_050,
+      },
+      profile: null,
+      phrases: null,
+      saveProfile: (vector, phrases) => {
+        saved.push({ vector, phrases });
+        return Promise.resolve();
+      },
+      toCore: () => undefined,
+      toAudio: () => undefined,
+      toMain: (message) => main.push(message),
+      log: { info: () => undefined, warn: () => undefined },
+      now: () => 0,
+    });
+    const say = (chunks: number) => {
+      for (let index = 0; index < chunks; index += 1) {
+        const samples = new Float32Array(CHUNK);
+        samples[1] = 1;
+        service.audio({ type: 'audio', samples });
+      }
+    };
+    return { service, main, saved, say };
+  }
+
+  it('фрази → профіль: лише числа, команди під час запису не слухаються', async () => {
+    const { service, main, saved, say } = enrollService();
+    for (let phrase = 0; phrase < 3; phrase += 1) {
+      service.enroll('start');
+      expect(service.state).toBe('enrolling');
+      say(30);
+      service.enroll('stop');
+    }
+    const phrases = main.filter(
+      (message) => message.type === 'voice.enrollment' && message.state === 'phrase',
+    );
+    expect(phrases.map((message) => message.type === 'voice.enrollment' && message.ok)).toEqual([
+      true,
+      true,
+      true,
+    ]);
+    service.enroll('finish');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.phrases).toBe(3);
+    expect(service.hasProfile).toBe(true);
+    expect(service.state).toBe('idle');
+    expect(main.filter((message) => message.type === 'voice.enrollment').at(-1)).toMatchObject({
+      state: 'saved',
+      phrases: 3,
+    });
+  });
+
+  it('замало мови — фраза не приймається; менше 3 фраз — профіль не зберігається', async () => {
+    const { service, main, saved, say } = enrollService();
+    service.enroll('start');
+    say(5);
+    service.enroll('stop');
+    const last = main.filter((message) => message.type === 'voice.enrollment').at(-1);
+    expect(last).toMatchObject({ state: 'phrase', ok: false });
+    service.enroll('finish');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(saved).toEqual([]);
+    expect(
+      main.some((message) => message.type === 'voice.enrollment' && message.state === 'failed'),
+    ).toBe(true);
+    service.enroll('cancel');
+    expect(service.state).toBe('idle');
+  });
+});

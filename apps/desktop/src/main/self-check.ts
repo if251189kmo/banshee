@@ -22,7 +22,7 @@ export interface CheckTarget {
     readonly state: string;
     readonly problem: string | null;
     readonly readyMs: number | null;
-    readonly selfTest: { heard: string | null; played: number } | null;
+    readonly selfTest: { heard: string | null; played: number; enrolled: boolean } | null;
   };
   crashCore(): void;
   openCenter(): BrowserWindow;
@@ -166,11 +166,14 @@ export async function runSelfCheck(target: CheckTarget, out: string): Promise<vo
       readyMs: voice.readyMs,
       heard: voice.selfTest?.heard ?? null,
       played: voice.selfTest?.played ?? 0,
+      enrolled: voice.selfTest?.enrolled ?? false,
     };
     if (voice.problem === 'Немає моделей голосу') {
       // Встановлена програма без моделей: голос не перевіряється — це не збій програми.
     } else if (voice.selfTest === null) {
       problems.push(`голос не пройшов самоперевірку: ${voice.problem ?? voice.state}`);
+    } else if (!voice.selfTest.enrolled) {
+      problems.push('голос: «Мій голос» не зберіг профіль');
     } else if (
       !closeTo(voice.selfTest.heard ?? '', 'котра година') ||
       voice.selfTest.played === 0

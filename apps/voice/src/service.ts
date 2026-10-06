@@ -19,7 +19,9 @@ import {
   type ListenerEvent,
   type ListenerOptions,
   type ListenerState,
+  speechOnly,
 } from './listener.ts';
+import { profileOf } from './vectors.ts';
 import { splitSentences, type PhraseStore, type TtsVoice } from './phrases.ts';
 import { VOICE_THRESHOLDS, WAKE_THRESHOLDS } from './thresholds.ts';
 
@@ -42,6 +44,8 @@ export interface VoiceServiceDeps {
   readonly engines: VoiceEngines;
   /** Профіль голосу власника; null — ще не записано, команди не перевіряються. */
   readonly profile: Float32Array | null;
+  /** Зберегти профіль після «Мого голосу»: лише числа, у data\voice цього ПК. */
+  saveProfile?(vector: Float32Array, phrases: number): Promise<void>;
   readonly phrases: PhraseStore | null;
   toCore(message: DesktopMessage): void;
   toAudio(message: VoiceToAudio): void;
@@ -102,6 +106,11 @@ export function yesNo(text: string): boolean | null {
   return null;
 }
 
+/** «Мій голос»: щонайменше стільки мови у фразі й стільки фраз у профілі; фраза — до 15 с. */
+const MIN_ENROLL_SPEECH_SEC = 1.5;
+const MIN_ENROLL_PHRASES = 3;
+const MAX_ENROLL_CHUNKS = Math.round(15_000 / CHUNK_MS);
+
 /** Скільки кроків звуку може чекати в черзі: далі — пропуск, щоб Banshee не відставав від мови. */
 const MAX_BACKLOG = 50;
 
@@ -128,9 +137,16 @@ export class VoiceService {
   /** Для журналу роботи й N1: коли закінчилась мова команди й коли прозвучав перший звук. */
   private speechEndAt: number | null = null;
   private firstSound = false;
+  private profile: Float32Array | null;
+  /** «Мій голос»: фрази — лише в пам'яті, поки триває запис; на диск — тільки профіль. */
+  private enrollment: {
+    recording: { chunk: Float32Array; speech: boolean }[] | null;
+    readonly embeddings: Float32Array[];
+  } | null = null;
 
   constructor(deps: VoiceServiceDeps) {
     this.deps = deps;
+    this.profile = deps.profile;
     const { engines } = deps;
     this.listener = new Listener(
       {
@@ -138,10 +154,10 @@ export class VoiceService {
         speech: (chunk) => engines.speech(chunk),
         recognize: (samples) => engines.recognize(samples),
         embed: (samples) => engines.embed(samples),
-        profile: () => deps.profile,
+        profile: () => this.profile,
         now: () => deps.now(),
       },
-      listenerOptions(this.settings, deps.profile !== null),
+      listenerOptions(this.settings, this.profile !== null),
       (event) => {
         this.onListener(event);
       },
@@ -149,7 +165,89 @@ export class VoiceService {
   }
 
   get state(): VoiceState {
-    return this.paused ? 'paused' : this.listener.current;
+    if (this.paused) return 'paused';
+    if (this.enrollment) return 'enrolling';
+    return this.listener.current;
+  }
+
+  get hasProfile(): boolean {
+    return this.profile !== null;
+  }
+
+  /**
+   * «Мій голос» (02-voice.md, «Розпізнавання власника за голосом»): 5 фраз по ~5 с. Поки триває
+   * запис, команди не слухаються. Фраза з мовою коротшою за 1,5 с — «скажи ще раз».
+   */
+  enroll(action: 'start' | 'stop' | 'finish' | 'cancel'): void {
+    switch (action) {
+      case 'start':
+        this.silence();
+        this.listener.reset();
+        this.enrollment ??= { recording: null, embeddings: [] };
+        this.enrollment.recording = [];
+        this.enrollmentEvent('recording');
+        break;
+      case 'stop': {
+        const enrollment = this.enrollment;
+        const steps = enrollment?.recording;
+        if (!enrollment || !steps) return;
+        enrollment.recording = null;
+        const speechSec = (steps.filter((step) => step.speech).length * CHUNK_MS) / 1000;
+        const embedding =
+          speechSec >= MIN_ENROLL_SPEECH_SEC ? this.deps.engines.embed(speechOnly(steps)) : null;
+        if (embedding) enrollment.embeddings.push(embedding);
+        this.enrollmentEvent('phrase', {
+          ok: embedding !== null,
+          seconds: Number(speechSec.toFixed(1)),
+          ...(embedding ? {} : { error: 'Замало мови — скажи фразу ще раз, трохи довше' }),
+        });
+        break;
+      }
+      case 'finish':
+        void this.finishEnrollment();
+        break;
+      case 'cancel':
+        this.enrollment = null;
+        this.enrollmentEvent('cancelled');
+        break;
+    }
+    this.publish();
+  }
+
+  private async finishEnrollment(): Promise<void> {
+    const enrollment = this.enrollment;
+    if (!enrollment) return;
+    if (enrollment.embeddings.length < MIN_ENROLL_PHRASES) {
+      this.enrollmentEvent('failed', {
+        error: `Потрібно щонайменше ${String(MIN_ENROLL_PHRASES)} фрази`,
+      });
+      return;
+    }
+    const vector = profileOf(enrollment.embeddings);
+    try {
+      await this.deps.saveProfile?.(vector, enrollment.embeddings.length);
+    } catch (error) {
+      this.enrollmentEvent('failed', { error: `Профіль не збережено: ${String(error)}` });
+      return;
+    }
+    this.profile = vector;
+    this.enrollment = null;
+    this.reconfigure();
+    this.deps.log.info('voice.profile', { phrases: enrollment.embeddings.length });
+    this.enrollmentEvent('saved', { phrases: enrollment.embeddings.length });
+    this.publish();
+  }
+
+  private enrollmentEvent(
+    state: 'recording' | 'phrase' | 'saved' | 'cancelled' | 'failed',
+    extra: { ok?: boolean; seconds?: number; error?: string; phrases?: number } = {},
+  ): void {
+    this.deps.toMain({
+      type: 'voice.enrollment',
+      state,
+      phrases: this.enrollment?.embeddings.length ?? 0,
+      ...extra,
+    });
   }
 
   get speaking(): boolean {
@@ -168,6 +266,16 @@ export class VoiceService {
     switch (message.type) {
       case 'audio': {
         if (this.paused) return;
+        if (this.enrollment) {
+          // Запис «Мого голосу»: команди не слухаються, звук — лише у фразу, що записується.
+          const recording = this.enrollment.recording;
+          if (recording && recording.length < MAX_ENROLL_CHUNKS)
+            recording.push({
+              chunk: message.samples,
+              speech: this.deps.engines.speech(message.samples),
+            });
+          return;
+        }
         if (this.backlog >= MAX_BACKLOG) {
           this.dropped += 1;
           if (this.dropped === 1) this.deps.log.warn('voice.backlog', { chunks: this.backlog });
@@ -303,7 +411,7 @@ export class VoiceService {
 
   /** Слово не будить, якщо «Слухати, лише коли ПК активний» і ПК неактивний: поріг недосяжний. */
   private reconfigure(): void {
-    const options = listenerOptions(this.settings, this.deps.profile !== null);
+    const options = listenerOptions(this.settings, this.profile !== null);
     const asleep = this.settings['voice.onlyWhenActive'] && !this.pc.active;
     this.listener.configure(asleep ? { ...options, wakeThreshold: 2 } : options);
   }

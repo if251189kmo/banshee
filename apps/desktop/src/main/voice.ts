@@ -154,6 +154,11 @@ export class VoiceHost {
     this.supervisor.start();
   }
 
+  /** «Мій голос»: дії запису — у процес voice. */
+  enroll(action: 'start' | 'stop' | 'finish' | 'cancel'): void {
+    this.post({ type: 'voice.enroll', action });
+  }
+
   /** «Стоп»: замовкнути й забути команду. */
   hush(): void {
     this.post({ type: 'voice.hush' });

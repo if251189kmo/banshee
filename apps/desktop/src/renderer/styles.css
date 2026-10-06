@@ -760,3 +760,14 @@ button.icon.mic[aria-pressed='true'] {
   margin: 8px 0;
   padding-left: 20px;
 }
+
+.my-voice {
+  margin: 12px 0;
+}
+
+.my-voice .phrase {
+  margin: 8px 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  font-size: 17px;
+}

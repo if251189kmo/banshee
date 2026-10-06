@@ -15,7 +15,7 @@ import {
   missingModels,
 } from './models.ts';
 import { PhraseCache } from './phrases.ts';
-import { loadVoicePrinter, readProfile } from './speaker.ts';
+import { VOICE_MODEL, loadVoicePrinter, readProfile, writeProfile } from './speaker.ts';
 import { loadRecognizer } from './stt.ts';
 import { loadSynthesizer } from './tts.ts';
 import { VoiceService } from './service.ts';
@@ -100,6 +100,13 @@ export async function startVoice(options: StartVoiceOptions): Promise<StartedVoi
       sampleRate: synthesizer.sampleRate,
     },
     profile: profile?.vector ?? null,
+    saveProfile: (vector, phrases) =>
+      writeProfile(join(options.dataDir, 'voice', PROFILE_FILE), {
+        model: VOICE_MODEL,
+        vector,
+        phrases,
+        createdAt: new Date().toISOString(),
+      }),
     phrases: new PhraseCache(join(options.dataDir, 'voice', 'phrases')),
     toCore: options.toCore,
     toAudio: options.toAudio,
