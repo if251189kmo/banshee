@@ -147,10 +147,15 @@ const turnRows = (db: Db) =>
 
 describe('рушій ходів: без ШІ', () => {
   it('рутина виконується локально: дія, фраза, журнал, жодного виклику Claude', async () => {
-    const { db, engine, tools, client, said } = await setup();
+    const { db, engine, tools, client, said, events } = await setup();
     await engine.command({ id: 't1', text: 'зроби гучність на тридцять', source: 'voice' });
     expect(tools.runs).toEqual([{ name: 'volume', args: { level: 30 } }]);
     expect(said()).toEqual(['Гучність 30 відсотків.']);
+    // Голос читає число словами (02-voice.md, «Текст для озвучки»).
+    expect(events.find((event) => event.type === 'say')).toMatchObject({
+      speak: true,
+      speech: 'Гучність тридцять відсотків.',
+    });
     expect(turnRows(db)).toEqual([{ route: 'routine', outcome: 'success', routine: 1 }]);
     expect(db.prepare('SELECT tool, source, confirmed_by, status FROM actions').all()).toEqual([
       { tool: 'volume', source: 'routine', confirmed_by: 'auto', status: 'done' },

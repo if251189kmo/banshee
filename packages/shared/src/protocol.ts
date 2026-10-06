@@ -118,12 +118,17 @@ const turnState = z.object({
   turnId: id,
   state: z.enum(TURN_STATES),
 });
-/** Текст відповіді частинами: оверлей показує стрімом, voice озвучує по реченнях. */
+/**
+ * Текст відповіді частинами: оверлей показує стрімом, voice озвучує по реченнях.
+ * speech — той самий текст для голосу (02-voice.md, «Текст для озвучки»): числа й знаки словами,
+ * назви кирилицею, без лапок; є, коли speak.
+ */
 const say = z.object({
   type: z.literal('say'),
   turnId: id,
   text: z.string(),
   speak: z.boolean(),
+  speech: z.string().optional(),
   done: z.boolean(),
 });
 /** Картка дії в оверлеї: іконка рівня, що зроблено, «Скасувати». */

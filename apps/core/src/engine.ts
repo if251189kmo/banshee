@@ -32,6 +32,8 @@ import { formatOwnerTurn, localDateTime } from './brain/turn-line.ts';
 import type { Db } from './db/database.ts';
 import { FAILURE_PHRASES, routinePhrase, systemInfoPhrase } from './phrases.ts';
 import { readSettings, writeSetting } from './settings/store.ts';
+import { aliasPronunciations } from './speech/pronunciations.ts';
+import { speechText } from './speech/speech.ts';
 
 /** Розмова триває, поки паузи коротші за 10 хв (03-brain.md, «Контекст розмови»). */
 export const EPISODE_GAP_MS = 10 * 60 * 1000;
@@ -280,8 +282,15 @@ export class Engine {
     return this.episode;
   }
 
+  /** Відповідь в оверлей; для голосу — ще й текст для озвучки (02-voice.md, «Текст для озвучки»). */
   private say(turnId: string, text: string, speak = true): void {
-    this.deps.emit({ type: 'say', turnId, text, speak, done: true });
+    if (!speak) {
+      this.deps.emit({ type: 'say', turnId, text, speak, done: true });
+      return;
+    }
+    const pronunciations = aliasPronunciations(ownerAliases(this.deps.db));
+    const speech = speechText(text, { pronunciations });
+    this.deps.emit({ type: 'say', turnId, text, speak, speech, done: true });
   }
 
   private confirm(turnId: string) {
