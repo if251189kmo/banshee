@@ -1,4 +1,6 @@
-// Типи для тієї частини sherpa-onnx-node, якою користуються прототипи етапу 0: пакет має лише JSDoc.
+// Типи для тієї частини sherpa-onnx-node, якою користуються прототипи етапу 0 і процес voice:
+// пакет має лише JSDoc. Асинхронні виклики (createAsync, decodeAsync, generateAsync) працюють
+// у потоках libuv і не блокують цикл подій — слово й кінець фрази тим часом рахуються далі.
 declare module 'sherpa-onnx-node' {
   export interface Wave {
     readonly samples: Float32Array;
@@ -24,8 +26,10 @@ declare module 'sherpa-onnx-node' {
 
   export class OfflineRecognizer {
     constructor(config: OfflineRecognizerConfig);
+    static createAsync(config: OfflineRecognizerConfig): Promise<OfflineRecognizer>;
     createStream(hotwords?: string): OfflineStream;
     decode(stream: OfflineStream): void;
+    decodeAsync(stream: OfflineStream): Promise<{ text: string }>;
     getResult(stream: OfflineStream): { text: string };
   }
 
@@ -69,9 +73,22 @@ declare module 'sherpa-onnx-node' {
 
   export class OfflineTts {
     constructor(config: OfflineTtsConfig);
+    static createAsync(config: OfflineTtsConfig): Promise<OfflineTts>;
     readonly numSpeakers: number;
     readonly sampleRate: number;
     generate(request: { text: string; sid: number; speed: number }): Wave;
+    /**
+     * onProgress отримує звук частинами, поки синтез триває; 0 або false — зупинити синтез.
+     */
+    generateAsync(request: {
+      text: string;
+      sid: number;
+      speed: number;
+      onProgress?: (info: {
+        samples: Float32Array;
+        progress: number;
+      }) => number | boolean | undefined;
+    }): Promise<Wave>;
   }
 
   export interface KeywordSpotterConfig {
