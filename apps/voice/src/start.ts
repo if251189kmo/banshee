@@ -86,6 +86,7 @@ export async function startVoice(options: StartVoiceOptions): Promise<StartedVoi
     readProfile(join(options.dataDir, 'voice', PROFILE_FILE)),
   ]);
   const speech = loadSpeechDetector(models(MODEL_PATHS.vad));
+  const enrollSpeech = loadSpeechDetector(models(MODEL_PATHS.vad));
   const printer = loadVoicePrinter(models(MODEL_PATHS.voiceprint));
   // Прогрів: перша команда власника не чекає на холодний Parakeet.
   await recognizer.recognize(new Float32Array(SAMPLE_RATE));
@@ -94,6 +95,7 @@ export async function startVoice(options: StartVoiceOptions): Promise<StartedVoi
     engines: {
       wake: (chunk) => (wake ? wake.push(chunk) : Promise.resolve(null)),
       speech: (chunk) => speech.push(chunk),
+      enrollSpeech,
       recognize: (samples) => recognizer.recognize(samples),
       embed: (samples) => printer.embed(samples),
       synthesize: (text, voice, signal) => synthesizer.synthesize(text, voice, signal),

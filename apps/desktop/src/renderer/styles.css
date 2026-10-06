@@ -771,3 +771,18 @@ button.icon.mic[aria-pressed='true'] {
   border-left: 3px solid var(--accent);
   font-size: 17px;
 }
+
+.level-meter meter {
+  width: 100%;
+  height: 14px;
+}
+
+.speech-mark {
+  min-width: 9ch;
+  color: var(--muted);
+}
+
+.speech-mark.on {
+  color: var(--accent);
+  font-weight: 600;
+}

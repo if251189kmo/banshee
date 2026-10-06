@@ -26,6 +26,7 @@ const STATE_TEXT: Record<string, string> = {
   busy: 'Виконую команду.',
   followUp: 'Слухаю продовження.',
   paused: 'Мікрофон на паузі (Ctrl+Shift+M).',
+  enrolling: 'Записую мій голос — команди зараз не слухаються.',
   failed: 'Голос не працює.',
 };
 

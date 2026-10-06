@@ -12,7 +12,7 @@ import {
   type VoiceState,
   type VoiceToAudio,
 } from '@banshee/shared';
-import { CHUNK_MS } from './audio.ts';
+import { CHUNK_MS, decibels, peakOf } from './audio.ts';
 import {
   DEFAULT_LISTENER,
   Listener,
@@ -29,6 +29,15 @@ export interface VoiceEngines {
   /** Оцінка слова або null; без моделі слова — завжди null, працює лише кнопка мікрофона. */
   wake(chunk: Float32Array): Promise<number | null>;
   speech(chunk: Float32Array): boolean;
+  /**
+   * VAD для фраз «Мого голосу» — окремий екземпляр: слухач викликає свій VAD у черзі, а запис — одразу,
+   * тож один детектор отримував би впереміш звук двох моментів і плутав свій стан. Кожна фраза — з
+   * чистого стану.
+   */
+  readonly enrollSpeech: {
+    readonly push: (chunk: Float32Array) => boolean;
+    readonly reset: () => void;
+  };
   recognize(samples: Float32Array): Promise<string>;
   embed(samples: Float32Array): Float32Array | null;
   synthesize(text: string, voice: TtsVoice, signal: AbortSignal): Promise<Float32Array | null>;
@@ -110,6 +119,24 @@ export function yesNo(text: string): boolean | null {
 const MIN_ENROLL_SPEECH_SEC = 1.5;
 const MIN_ENROLL_PHRASES = 3;
 const MAX_ENROLL_CHUNKS = Math.round(15_000 / CHUNK_MS);
+/** Рівень мікрофона під час запису фрази — у вікно раз на стільки кроків (~0,24 с). */
+const LEVEL_EVERY = 3;
+/** Фраза тихіша за це — мікрофон дає тишу: не той пристрій, вимкнений або рівень запису на нулі. */
+const SILENT_DB = -60;
+/** Цифрова тиша (нижче за молодший розряд 16 біт) стільки кроків поспіль (5 с) — у журнал. */
+const DIGITAL_SILENCE = 1e-5;
+const SILENT_CHUNKS = Math.round(5000 / CHUNK_MS);
+
+const seconds = (value: number): string => value.toFixed(1).replace('.', ',');
+
+/** Чому фразу не прийнято — словами, з тим, що почув Banshee. */
+export function enrollError(recorded: number, speech: number, peakDb: number): string {
+  if (recorded === 0)
+    return 'Звук із мікрофона не надходить — перевір мікрофон у Windows і чи не стоїть пауза мікрофона';
+  if (peakDb < SILENT_DB)
+    return `Мікрофон дає тишу (найгучніше ${String(peakDb).replace('-', '−')} дБ) — перевір пристрій запису й рівень у Windows`;
+  return `Почуто ${seconds(speech)} с мови з ${seconds(recorded)} с запису — скажи фразу ще раз, трохи довше`;
+}
 
 /** Скільки кроків звуку може чекати в черзі: далі — пропуск, щоб Banshee не відставав від мови. */
 const MAX_BACKLOG = 50;
@@ -140,9 +167,11 @@ export class VoiceService {
   private profile: Float32Array | null;
   /** «Мій голос»: фрази — лише в пам'яті, поки триває запис; на диск — тільки профіль. */
   private enrollment: {
-    recording: { chunk: Float32Array; speech: boolean }[] | null;
+    recording: { chunk: Float32Array; speech: boolean; peak: number }[] | null;
     readonly embeddings: Float32Array[];
   } | null = null;
+  /** Скільки кроків поспіль мікрофон дає цифрову тишу. */
+  private silentChunks = 0;
 
   constructor(deps: VoiceServiceDeps) {
     this.deps = deps;
@@ -183,6 +212,7 @@ export class VoiceService {
       case 'start':
         this.silence();
         this.listener.reset();
+        this.deps.engines.enrollSpeech.reset();
         this.enrollment ??= { recording: null, embeddings: [] };
         this.enrollment.recording = [];
         this.enrollmentEvent('recording');
@@ -193,13 +223,25 @@ export class VoiceService {
         if (!enrollment || !steps) return;
         enrollment.recording = null;
         const speechSec = (steps.filter((step) => step.speech).length * CHUNK_MS) / 1000;
+        const recorded = Number(((steps.length * CHUNK_MS) / 1000).toFixed(1));
+        const peakDb = decibels(steps.reduce((peak, step) => Math.max(peak, step.peak), 0));
         const embedding =
           speechSec >= MIN_ENROLL_SPEECH_SEC ? this.deps.engines.embed(speechOnly(steps)) : null;
         if (embedding) enrollment.embeddings.push(embedding);
+        const speech = Number(speechSec.toFixed(1));
+        // Лише числа: скільки звуку, мови й наскільки гучно — щоб було видно, чи Banshee чує мікрофон.
+        this.deps.log.info('voice.enroll', {
+          recorded,
+          speech,
+          peakDb,
+          ok: embedding !== null,
+        });
         this.enrollmentEvent('phrase', {
           ok: embedding !== null,
-          seconds: Number(speechSec.toFixed(1)),
-          ...(embedding ? {} : { error: 'Замало мови — скажи фразу ще раз, трохи довше' }),
+          seconds: speech,
+          recorded,
+          peakDb,
+          ...(embedding ? {} : { error: enrollError(recorded, speech, peakDb) }),
         });
         break;
       }
@@ -240,7 +282,14 @@ export class VoiceService {
 
   private enrollmentEvent(
     state: 'recording' | 'phrase' | 'saved' | 'cancelled' | 'failed',
-    extra: { ok?: boolean; seconds?: number; error?: string; phrases?: number } = {},
+    extra: {
+      ok?: boolean;
+      seconds?: number;
+      recorded?: number;
+      peakDb?: number;
+      error?: string;
+      phrases?: number;
+    } = {},
   ): void {
     this.deps.toMain({
       type: 'voice.enrollment',
@@ -266,14 +315,26 @@ export class VoiceService {
     switch (message.type) {
       case 'audio': {
         if (this.paused) return;
+        const peak = peakOf(message.samples);
+        this.watchSilence(peak);
         if (this.enrollment) {
           // Запис «Мого голосу»: команди не слухаються, звук — лише у фразу, що записується.
           const recording = this.enrollment.recording;
-          if (recording && recording.length < MAX_ENROLL_CHUNKS)
+          if (recording && recording.length < MAX_ENROLL_CHUNKS) {
             recording.push({
               chunk: message.samples,
-              speech: this.deps.engines.speech(message.samples),
+              speech: this.deps.engines.enrollSpeech.push(message.samples),
+              peak,
             });
+            if (recording.length % LEVEL_EVERY === 0) {
+              const recent = recording.slice(-LEVEL_EVERY);
+              this.deps.toMain({
+                type: 'voice.level',
+                db: decibels(Math.max(...recent.map((step) => step.peak))),
+                speech: recent.some((step) => step.speech),
+              });
+            }
+          }
           return;
         }
         if (this.backlog >= MAX_BACKLOG) {
@@ -394,6 +455,23 @@ export class VoiceService {
   async settled(): Promise<void> {
     await this.chain;
     await this.listener.settled();
+  }
+
+  /**
+   * Мікрофон дає цифрову тишу (самі нулі) 5 с поспіль — один запис у журнал, і ще один, коли звук
+   * повернувся: так видно пристрій, що відкрився, але мовчить (зайнятий, вимкнений, Bluetooth).
+   */
+  private watchSilence(peak: number): void {
+    if (peak >= DIGITAL_SILENCE) {
+      if (this.silentChunks >= SILENT_CHUNKS)
+        this.deps.log.info('voice.sound', {
+          silentSec: Math.round((this.silentChunks * CHUNK_MS) / 1000),
+        });
+      this.silentChunks = 0;
+      return;
+    }
+    this.silentChunks += 1;
+    if (this.silentChunks === SILENT_CHUNKS) this.deps.log.warn('voice.silence', { seconds: 5 });
   }
 
   private apply(settings: VoiceSettings): void {

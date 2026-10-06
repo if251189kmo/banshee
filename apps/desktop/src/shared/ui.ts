@@ -1,7 +1,7 @@
 // Команди між вікнами й головним процесом desktop (не core): сховати оверлей і підігнати його висоту,
 // відкрити розділ центру керування, відкрити посилання в браузері. Перевіряються схемою на вході:
 // сторінка не може попросити головний процес відкрити довільну адресу.
-import { VOICE_STATES } from '@banshee/shared';
+import { VOICE_STATES, voiceEnrollment, voiceLevel } from '@banshee/shared';
 import { z } from '@banshee/shared/zod';
 
 /** Розділи центру керування (.claude/logic/09-ui.md); `wizard` — майстер першого запуску. */
@@ -80,15 +80,9 @@ export const uiToWindow = z.discriminatedUnion('type', [
     total: z.number().min(0),
     error: z.string().optional(),
   }),
-  /** «Мій голос»: перебіг запису. */
-  z.object({
-    type: z.literal('voice.enrollment'),
-    state: z.enum(['recording', 'phrase', 'saved', 'cancelled', 'failed']),
-    phrases: z.number().int().min(0),
-    ok: z.boolean().optional(),
-    seconds: z.number().min(0).optional(),
-    error: z.string().optional(),
-  }),
+  /** «Мій голос»: перебіг запису й рівень мікрофона, поки записується фраза. */
+  voiceEnrollment,
+  voiceLevel,
   /** Що почув Banshee: команда (з ходом) або «так» / «ні» на картку. */
   z.object({
     type: z.literal('voice.heard'),

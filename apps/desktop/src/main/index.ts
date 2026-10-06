@@ -784,6 +784,9 @@ function onVoiceMessage(message: ControlFromVoice): void {
       if (message.state === 'saved' && voiceInfo) voiceInfo = { ...voiceInfo, profile: true };
       broadcast(message);
       return;
+    case 'voice.level':
+      broadcast(message);
+      return;
     default:
       return;
   }

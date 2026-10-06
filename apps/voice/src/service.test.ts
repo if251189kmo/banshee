@@ -1,7 +1,7 @@
 import type { ControlFromVoice, DesktopMessage, VoiceToAudio } from '@banshee/shared';
 import { describe, expect, it } from 'vitest';
 import { CHUNK } from './audio.ts';
-import { VoiceService, yesNo } from './service.ts';
+import { VoiceService, enrollError, yesNo } from './service.ts';
 
 function harness(texts: string[]) {
   const core: DesktopMessage[] = [];
@@ -12,6 +12,7 @@ function harness(texts: string[]) {
     engines: {
       wake: (chunk) => Promise.resolve(chunk[0] ?? null),
       speech: (chunk) => (chunk[1] ?? 0) > 0,
+      enrollSpeech: { push: (chunk) => (chunk[1] ?? 0) > 0, reset: () => undefined },
       recognize: () => Promise.resolve(texts.shift() ?? ''),
       embed: () => null,
       synthesize: (text) => {
@@ -231,6 +232,7 @@ describe('готові фрази', () => {
       engines: {
         wake: () => Promise.resolve(null),
         speech: () => false,
+        enrollSpeech: { push: () => false, reset: () => undefined },
         recognize: () => Promise.resolve(''),
         embed: () => null,
         synthesize: (text) => {
@@ -321,11 +323,26 @@ describe('стан ПК', () => {
 describe('мій голос', () => {
   function enrollService() {
     const main: ControlFromVoice[] = [];
+    const logs: { level: 'info' | 'warn'; event: string; fields?: Record<string, unknown> }[] = [];
     const saved: { vector: Float32Array; phrases: number }[] = [];
+    /** Хто питав VAD: слухач (`speech`) чи запис фрази (`enrollSpeech`), і скільки разів його скинуто. */
+    const vad = { listener: 0, enroll: 0, resets: 0 };
     const service = new VoiceService({
       engines: {
         wake: () => Promise.resolve(null),
-        speech: (chunk) => (chunk[1] ?? 0) > 0,
+        speech: (chunk) => {
+          vad.listener += 1;
+          return (chunk[1] ?? 0) > 0;
+        },
+        enrollSpeech: {
+          push: (chunk) => {
+            vad.enroll += 1;
+            return (chunk[1] ?? 0) > 0;
+          },
+          reset: () => {
+            vad.resets += 1;
+          },
+        },
         recognize: () => Promise.resolve(''),
         embed: () => Float32Array.from([1, 0, 0]),
         synthesize: () => Promise.resolve(null),
@@ -340,18 +357,40 @@ describe('мій голос', () => {
       toCore: () => undefined,
       toAudio: () => undefined,
       toMain: (message) => main.push(message),
-      log: { info: () => undefined, warn: () => undefined },
+      log: {
+        info: (event, fields) => logs.push({ level: 'info', event, ...(fields ? { fields } : {}) }),
+        warn: (event, fields) => logs.push({ level: 'warn', event, ...(fields ? { fields } : {}) }),
+      },
       now: () => 0,
     });
-    const say = (chunks: number) => {
+    /** Кроки звуку: мова (позначка VAD у фальшивому двигуні) з піком `peak`, або тиша. */
+    const say = (chunks: number, peak = 0.5, speech = true) => {
       for (let index = 0; index < chunks; index += 1) {
         const samples = new Float32Array(CHUNK);
-        samples[1] = 1;
+        samples[0] = peak;
+        samples[1] = speech ? peak : 0;
         service.audio({ type: 'audio', samples });
       }
     };
-    return { service, main, saved, say };
+    const lastPhrase = () =>
+      main
+        .filter((message) => message.type === 'voice.enrollment' && message.state === 'phrase')
+        .at(-1);
+    return { service, main, logs, saved, say, lastPhrase, vad };
   }
+
+  it('фраза — власним VAD із чистого стану: черга слухача не плутає його звуком іншого моменту', async () => {
+    const { service, say, vad } = enrollService();
+    say(4);
+    service.enroll('start');
+    say(20);
+    service.enroll('stop');
+    service.enroll('start');
+    say(20);
+    service.enroll('stop');
+    await service.settled();
+    expect(vad).toEqual({ listener: 4, enroll: 40, resets: 2 });
+  });
 
   it('фрази → профіль: лише числа, команди під час запису не слухаються', async () => {
     const { service, main, saved, say } = enrollService();
@@ -396,5 +435,81 @@ describe('мій голос', () => {
     ).toBe(true);
     service.enroll('cancel');
     expect(service.state).toBe('idle');
+  });
+
+  it('фраза: скільки звуку, мови й наскільки гучно — у вікно й журнал, без звуку', () => {
+    const { service, logs, say, lastPhrase } = enrollService();
+    service.enroll('start');
+    say(10, 0, false);
+    say(25, 0.5);
+    say(10, 0, false);
+    service.enroll('stop');
+    expect(lastPhrase()).toMatchObject({ ok: true, seconds: 2, recorded: 3.6, peakDb: -6 });
+    expect(logs.at(-1)).toEqual({
+      level: 'info',
+      event: 'voice.enroll',
+      fields: { recorded: 3.6, speech: 2, peakDb: -6, ok: true },
+    });
+  });
+
+  it('рівень мікрофона під час запису — раз на 3 кроки, лише поки записується фраза', () => {
+    const { service, main, say } = enrollService();
+    say(9);
+    expect(main.some((message) => message.type === 'voice.level')).toBe(false);
+    service.enroll('start');
+    say(3, 0, false);
+    say(3, 0.1);
+    service.enroll('stop');
+    say(6);
+    const levels = main.filter((message) => message.type === 'voice.level');
+    expect(levels).toEqual([
+      { type: 'voice.level', db: -120, speech: false },
+      { type: 'voice.level', db: -20, speech: true },
+    ]);
+  });
+
+  it('чому фразу не прийнято: звук не надходить, мікрофон дає тишу, замало мови', () => {
+    const { service, say, lastPhrase } = enrollService();
+    service.enroll('start');
+    service.enroll('stop');
+    expect(lastPhrase()).toMatchObject({ ok: false, recorded: 0, peakDb: -120 });
+    expect(lastPhrase()).toHaveProperty('error', expect.stringContaining('не надходить'));
+
+    service.enroll('start');
+    say(50, 0.0005, false);
+    service.enroll('stop');
+    expect(lastPhrase()).toMatchObject({ ok: false, recorded: 4, peakDb: -66 });
+    expect(lastPhrase()).toHaveProperty('error', expect.stringContaining('Мікрофон дає тишу'));
+
+    service.enroll('start');
+    say(40, 0.3, false);
+    say(5, 0.3);
+    service.enroll('stop');
+    expect(lastPhrase()).toMatchObject({
+      ok: false,
+      error: 'Почуто 0,4 с мови з 3,6 с запису — скажи фразу ще раз, трохи довше',
+    });
+  });
+
+  it('цифрова тиша 5 с поспіль — один запис у журнал; звук повернувся — ще один', () => {
+    const { logs, say } = enrollService();
+    say(Math.round(5000 / 80) + 20, 0, false);
+    say(2, 0.2);
+    say(30, 0, false);
+    expect(logs.filter((entry) => entry.event.startsWith('voice.s'))).toEqual([
+      { level: 'warn', event: 'voice.silence', fields: { seconds: 5 } },
+      { level: 'info', event: 'voice.sound', fields: { silentSec: 7 } },
+    ]);
+  });
+});
+
+describe('enrollError', () => {
+  it('десяткові — з комою, як пише людина', () => {
+    expect(enrollError(4.8, 0.6, -12)).toBe(
+      'Почуто 0,6 с мови з 4,8 с запису — скажи фразу ще раз, трохи довше',
+    );
+    expect(enrollError(4.8, 0, -75)).toBe(
+      'Мікрофон дає тишу (найгучніше −75 дБ) — перевір пристрій запису й рівень у Windows',
+    );
   });
 });

@@ -19,6 +19,18 @@ export function concat(chunks: readonly Float32Array[]): Float32Array {
   return out;
 }
 
+/** Найгучніший відлік кроку за модулем. */
+export function peakOf(samples: Float32Array): number {
+  let peak = 0;
+  for (const value of samples) peak = Math.max(peak, Math.abs(value));
+  return peak;
+}
+
+/** Рівень у дБ відносно повної шкали, округлений до цілого: −120 (тиша)…0. */
+export function decibels(peak: number): number {
+  return peak <= 1e-6 ? -120 : Math.min(0, Math.round(20 * Math.log10(peak)));
+}
+
 /** WAV PCM 16 біт → відліки −1…1 (перший канал). Для перевірок на записах і тестів. */
 export function decodeWav(buffer: Buffer): { samples: Float32Array; sampleRate: number } {
   if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WAVE')

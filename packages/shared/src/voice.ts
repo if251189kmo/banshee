@@ -106,14 +106,26 @@ const voiceCapture = z.object({
   ok: z.boolean(),
   error: z.string().optional(),
 });
-/** «Мій голос»: перебіг запису. phrases — скільки фраз уже прийнято. */
-const voiceEnrollment = z.object({
+/**
+ * «Мій голос»: перебіг запису. phrases — скільки фраз уже прийнято. Для фрази: seconds — скільки в
+ * ній мови, recorded — скільки звуку надійшло з мікрофона, peakDb — найгучніше місце (дБ від повної
+ * шкали): так видно, чи Banshee взагалі чує мікрофон.
+ */
+export const voiceEnrollment = z.object({
   type: z.literal('voice.enrollment'),
   state: z.enum(['recording', 'phrase', 'saved', 'cancelled', 'failed']),
   phrases: z.number().int().min(0),
   ok: z.boolean().optional(),
   seconds: z.number().min(0).optional(),
+  recorded: z.number().min(0).optional(),
+  peakDb: z.number().min(-120).max(0).optional(),
   error: z.string().optional(),
+});
+/** Рівень мікрофона, поки записується фраза «Мого голосу»: найгучніше за ~0,24 с і чи це мова. */
+export const voiceLevel = z.object({
+  type: z.literal('voice.level'),
+  db: z.number().min(-120).max(0),
+  speech: z.boolean(),
 });
 /** Перевірка програми: що пройшло через конвеєр. */
 const voiceSelfTest = z.object({
@@ -132,6 +144,7 @@ export const controlFromVoice = z.discriminatedUnion('type', [
   voiceHeard,
   voiceCapture,
   voiceEnrollment,
+  voiceLevel,
   voiceSelfTest,
 ]);
 export type ControlFromVoice = z.output<typeof controlFromVoice>;
