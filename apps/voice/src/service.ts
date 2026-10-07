@@ -361,11 +361,10 @@ export class VoiceService {
         }
         return;
       case 'capture':
-        this.deps.toMain({
-          type: 'voice.capture',
-          ok: message.ok,
-          ...(message.error === undefined ? {} : { error: message.error }),
-        });
+        this.deps.toMain({ ...message, type: 'voice.capture' });
+        return;
+      case 'devices':
+        this.deps.toMain({ ...message, type: 'voice.devices' });
         return;
     }
   }

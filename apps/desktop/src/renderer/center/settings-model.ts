@@ -41,7 +41,21 @@ export type Control =
       readonly kind: 'group';
       readonly fields: readonly { name: string; label: string; control: Control }[];
     }
+  /** Пристрій звуку зі списку вікна звуку; «default» — як у Windows. */
+  | { readonly kind: 'device'; readonly direction: 'input' | 'output' }
   | { readonly kind: 'json' };
+
+/** Налаштування, де значення — назва пристрою звуку, а не довільний текст. */
+const DEVICE_SETTINGS: Partial<Record<SettingKey, 'input' | 'output'>> = {
+  'voice.microphone': 'input',
+  'voice.speakers': 'output',
+};
+
+/** Елемент керування для пункту: пристрій звуку — список, решта — зі схеми. */
+export function controlForKey(key: SettingKey): Control {
+  const direction = DEVICE_SETTINGS[key];
+  return direction ? { kind: 'device', direction } : controlFor(SETTINGS[key].schema);
+}
 
 const VALUE_LABELS: Readonly<Record<string, string>> = {
   system: 'Як у Windows',
@@ -149,6 +163,8 @@ export function formatValue(control: Control, value: unknown): string {
             `${field.label.toLowerCase()} ${formatValue(field.control, (value as Record<string, unknown>)[field.name])}`,
         )
         .join(', ');
+    case 'device':
+      return value === 'default' ? 'Як у Windows' : text(value);
     case 'json':
       return JSON.stringify(value);
   }

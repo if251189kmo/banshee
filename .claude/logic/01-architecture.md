@@ -264,7 +264,7 @@ flowchart TB
   - `npm run evals` — еталонний набір на справжньому Haiku 4.5, інструменти — заглушки; витрачає кредити (≈ $0,1), тож у Claude Code — з підтвердженням;
   - `npm run dev` — програма з перезбиранням на льоту (electron-vite);
   - `npm run build` — збірка в `apps/desktop/out`;
-  - `npm run desktop:check` — крок 1.1: перевірка зібраної програми, результат — `.data/desktop-check.json`;
+  - `npm run desktop:check` — крок 1.1: перевірка зібраної програми, результат — `.data/desktop-check.json`; з етапу 2 — і голос крізь справжнє вікно звуку з підставним мікрофоном Chromium ([02-voice.md](02-voice.md), «У програмі»);
   - `npm run desktop:icons` — іконки трею й програми;
   - `npm run voice:check` — етап 2: голосовий конвеєр продукту на записах етапу 0, без мікрофона ([02-voice.md](02-voice.md), «Реалізація — етап 2»);
   - `npm run voice:dev-setup` — модель слова й профіль голосу власника з даних етапу 0 для розробки; `-- --to <тека Banshee>` — для встановленої програми.

@@ -4,11 +4,12 @@
 import { SETTINGS, type SettingKey, type Settings } from '@banshee/shared';
 import { useEffect, useState } from 'react';
 import { AiStateCard } from '../components/AiStateCard.tsx';
+import { DeviceSelect } from '../components/AudioDevices.tsx';
 import { VoiceCard } from '../components/VoiceCard.tsx';
 import { SECTION_TOPIC } from '../help/help-model.ts';
 import { core, onCoreMessage } from '../core-client.ts';
 import {
-  controlFor,
+  controlForKey,
   formatValue,
   SETTING_SECTIONS,
   visibleKeys,
@@ -143,6 +144,8 @@ function Editor(props: {
         </fieldset>
       );
     }
+    case 'device':
+      return <DeviceSelect id={id} direction={control.direction} value={value} onChange={onChange} />;
     case 'json':
       return <JsonEditor id={id} value={value} onChange={onChange} />;
   }
@@ -176,11 +179,14 @@ function JsonEditor(props: { id: string; value: unknown; onChange: (value: unkno
 
 /** Одразу зберігаємо перемикачі й вибір; решту — кнопкою «Зберегти». */
 const instant = (control: Control): boolean =>
-  control.kind === 'toggle' || control.kind === 'choice' || control.kind === 'checks';
+  control.kind === 'toggle' ||
+  control.kind === 'choice' ||
+  control.kind === 'checks' ||
+  control.kind === 'device';
 
 function SettingRow({ settingKey, value }: { settingKey: SettingKey; value: unknown }) {
   const def = SETTINGS[settingKey];
-  const control = controlFor(def.schema);
+  const control = controlForKey(settingKey);
   const [draft, setDraft] = useState<unknown>(value);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<unknown>(undefined);

@@ -1,6 +1,12 @@
 import { SETTINGS, SETTING_KEYS } from '@banshee/shared';
 import { describe, expect, it } from 'vitest';
-import { controlFor, formatValue, sectionOf, visibleKeys } from './settings-model.ts';
+import {
+  controlFor,
+  controlForKey,
+  formatValue,
+  sectionOf,
+  visibleKeys,
+} from './settings-model.ts';
 
 describe('налаштування на сторінці', () => {
   it('кожен пункт схеми має елемент керування і розділ', () => {
@@ -43,6 +49,17 @@ describe('налаштування на сторінці', () => {
     const limits = controlFor(SETTINGS['ai.limits'].schema);
     expect(formatValue(limits, { dayUsd: 1, monthUsd: 20 })).toBe('на день, $ 1, на місяць, $ 20');
     expect(formatValue(controlFor(SETTINGS['voice.endPauseSec'].schema), 0.5)).toBe('0,5');
+  });
+
+  it('мікрофон і динаміки — список пристроїв, а не текст', () => {
+    const microphone = controlForKey('voice.microphone');
+    expect(microphone).toEqual({ kind: 'device', direction: 'input' });
+    expect(controlForKey('voice.speakers')).toEqual({ kind: 'device', direction: 'output' });
+    expect(controlForKey('general.theme').kind).toBe('choice');
+    expect(formatValue(microphone, 'default')).toBe('Як у Windows');
+    expect(formatValue(microphone, 'Headset (JBL TUNE710BT Hands-Free AG Audio)')).toBe(
+      'Headset (JBL TUNE710BT Hands-Free AG Audio)',
+    );
   });
 
   it('приховані пункти й майстер не показуються; пошук — по всіх розділах', () => {

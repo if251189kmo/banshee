@@ -7,6 +7,7 @@ import { writeFileSync } from 'node:fs';
 import { release, tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import {
+  FAKE_MIC_FILE,
   parseControlFromCore,
   parseCoreMessage,
   PROTOCOL_VERSION,
@@ -86,6 +87,15 @@ app.setPath('sessionData', paths.chromium);
 app.setPath('logs', paths.logs);
 app.setPath('crashDumps', join(paths.logs, 'crashes'));
 app.setAppUserModelId('ua.banshee.desktop');
+// Перевірка програми слухає справжнє вікно звуку, але з підставним мікрофоном Chromium: він «каже»
+// WAV, який пише процес voice. Мікрофон власника не відкривається.
+if (SELF_CHECK && !UI_SHOTS) {
+  app.commandLine.appendSwitch('use-fake-device-for-media-stream');
+  app.commandLine.appendSwitch('use-file-for-fake-audio-capture', join(paths.data, FAKE_MIC_FILE));
+}
+// Знімки інтерфейсу не залежать від того, що зараз на екрані: вікно, перекрите іншим вікном
+// поверх усіх (оверлей Banshee, що вже працює), Chromium не малює, і знімок падає.
+if (UI_SHOTS) app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 const log = createLog({ dir: paths.logs, source: 'desktop' });
 const resource = (name: string): string => join(app.getAppPath(), 'resources', name);
@@ -125,6 +135,17 @@ let voiceSelfTest: Extract<ControlFromVoice, { type: 'voice.selfTest' }> | null 
 let voiceReadyAt: number | null = null;
 /** Остання самоперевірка процесу voice: модель слова й профіль голосу. */
 let voiceInfo: { wakeModel: 'own' | 'base' | 'none'; profile: boolean } | null = null;
+type VoiceCapture = Extract<ControlFromVoice, { type: 'voice.capture' }>;
+type VoiceDevices = Extract<ControlFromVoice, { type: 'voice.devices' }>;
+type VoiceEnrollment = Extract<ControlFromVoice, { type: 'voice.enrollment' }>;
+/** Який мікрофон відкрило вікно звуку й чи дає він звук; null — вікна звуку немає. */
+let audioCapture: VoiceCapture | null = null;
+let captureOpened = 0;
+/** Пристрої звуку, які бачить вікно звуку: для вибору мікрофона й динаміків у налаштуваннях. */
+let audioDevices: VoiceDevices | null = null;
+/** Перевірка програми: остання фраза «Мого голосу» і скільки їх було. */
+let lastPhrase: VoiceEnrollment | null = null;
+let phrasesHeard = 0;
 let modelsDownload: {
   state: 'running' | 'done' | 'failed';
   progress: DownloadProgress | null;
@@ -163,7 +184,7 @@ const voice = new VoiceHost({
     post(core, { type: 'core.attach', client: 'voice' }, [port]);
     return true;
   },
-  createAudioWindow: () => (SELF_CHECK ? null : createAudioWindow()),
+  createAudioWindow: () => (UI_SHOTS ? null : createAudioWindow()),
   onState: (state, speaking) => {
     onVoiceState(state, speaking);
   },
@@ -421,6 +442,11 @@ function createWindow(
 ): BrowserWindow {
   const win = new BrowserWindow({ ...options, webPreferences: WEB_PREFERENCES });
   windows.set(win, kind);
+  // Помилки сторінок — у журнал роботи: інакше їх видно лише в DevTools.
+  win.webContents.on('console-message', (event) => {
+    if (event.level === 'error')
+      log.warn('page.console', { window: kind, text: event.message.slice(0, 500) });
+  });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event) => {
     event.preventDefault();
@@ -625,6 +651,18 @@ ipcMain.handle('ui:voiceModels', (event) => {
   };
 });
 
+/** Сторінка вікна звуку готова: порт до процесу voice й керування мікрофоном. */
+ipcMain.on('audio:ready', (event) => {
+  voice.audioPageReady(event.sender);
+});
+
+/** Пристрої звуку й мікрофон, який відкрило вікно звуку: для вибору в налаштуваннях. */
+ipcMain.handle('ui:voiceDevices', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || !windows.has(win)) throw new Error('Невідоме вікно');
+  return { devices: audioDevices, capture: audioCapture };
+});
+
 function broadcast(message: UiToWindow): void {
   for (const win of windows.keys()) toWindow(win, message);
 }
@@ -746,11 +784,35 @@ const VOICE_TEXT: Record<VoiceHostState, string> = {
 };
 
 function onVoiceState(state: VoiceHostState, speaking: boolean): void {
+  // Голос вимкнено або не працює — вікна звуку й мікрофона немає.
+  if (state === 'off' || state === 'failed') audioCapture = null;
   const message = { type: 'voice', state, speaking, problem: voice.problem } as const;
   for (const win of windows.keys()) toWindow(win, message);
   // Слово «Banshee» — оверлей показує, що Banshee слухає, але фокус не забирає.
   if (state === 'listening' && !SELF_CHECK && !overlay?.isVisible()) showOverlay(false);
   refreshTray();
+}
+
+/**
+ * Мікрофон у вікні звуку: у журнал — яким пристроєм і що з ним сталося; не відкрився —
+ * сповіщення. Сторінки показують назву мікрофона в картці «Голос».
+ */
+function onCapture(message: VoiceCapture): void {
+  const fields = {
+    state: message.event,
+    label: message.label ?? '',
+    ...(message.fallback === true ? { fallback: true } : {}),
+    ...(message.error === undefined ? {} : { error: message.error }),
+  };
+  if (message.event === 'failed' || message.event === 'ended') log.warn('voice.capture', fields);
+  else log.info('voice.capture', fields);
+  if (message.event === 'opened') captureOpened += 1;
+  audioCapture = message;
+  broadcast(message);
+  if (message.event === 'failed')
+    notify(
+      'Мікрофон не відкрився. Перевір у Windows: Параметри → Конфіденційність → Мікрофон → доступ для класичних програм.',
+    );
 }
 
 function onVoiceMessage(message: ControlFromVoice): void {
@@ -763,12 +825,11 @@ function onVoiceMessage(message: ControlFromVoice): void {
       if (overlay) toWindow(overlay, message);
       return;
     case 'voice.capture':
-      if (!message.ok) {
-        log.warn('voice.capture', { error: message.error ?? '' });
-        notify(
-          'Мікрофон не відкрився. Перевір у Windows: Параметри → Конфіденційність → Мікрофон → доступ для класичних програм.',
-        );
-      }
+      onCapture(message);
+      return;
+    case 'voice.devices':
+      audioDevices = message;
+      broadcast(message);
       return;
     case 'voice.failed':
       notify(
@@ -782,6 +843,10 @@ function onVoiceMessage(message: ControlFromVoice): void {
       return;
     case 'voice.enrollment':
       if (message.state === 'saved' && voiceInfo) voiceInfo = { ...voiceInfo, profile: true };
+      if (message.state === 'phrase') {
+        lastPhrase = message;
+        phrasesHeard += 1;
+      }
       broadcast(message);
       return;
     case 'voice.level':
@@ -811,6 +876,17 @@ function createAudioWindow(): BrowserWindow {
     },
   });
   audioWindow = win;
+  // Вікно приховане: його помилки й падіння видно лише в журналі роботи.
+  win.webContents.on('console-message', (event) => {
+    if (event.level === 'error' || event.level === 'warning')
+      log.warn('audio.console', { level: event.level, text: event.message.slice(0, 500) });
+  });
+  win.webContents.on('render-process-gone', (_event, details) => {
+    log.error('audio.gone', { reason: details.reason, code: details.exitCode });
+  });
+  win.webContents.on('did-fail-load', (_event, code, description) => {
+    log.error('audio.load', { code, description });
+  });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event) => {
     event.preventDefault();
@@ -983,6 +1059,28 @@ function start(): void {
         openCenter: () => showCenter(),
         command: (text) => {
           send({ type: 'command', id: `check-${String(Date.now())}`, text, source: 'text' });
+        },
+        audio: {
+          attach: () => {
+            voice.attachAudio();
+          },
+          opened: () => ({
+            count: captureOpened,
+            label: audioCapture?.event === 'opened' ? (audioCapture.label ?? null) : null,
+          }),
+          enroll: (action) => {
+            voice.enroll(action);
+          },
+          phrases: () => ({ count: phrasesHeard, last: lastPhrase }),
+          devices: () =>
+            audioDevices
+              ? { inputs: audioDevices.inputs.length, outputs: audioDevices.outputs.length }
+              : null,
+          toggle: async () => {
+            void voice.disable();
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            voice.enable({ microphone: 'default', speakers: 'default' });
+          },
         },
         log,
       },

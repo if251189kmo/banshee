@@ -503,6 +503,30 @@ describe('мій голос', () => {
   });
 });
 
+describe('стан мікрофона з вікна звуку', () => {
+  it('яким пристроєм відкрито й які є пристрої — у головний процес', () => {
+    const { service, main } = harness([]);
+    service.audio({ type: 'capture', event: 'opened', label: 'Headset (JBL)', fallback: true });
+    service.audio({
+      type: 'devices',
+      inputs: ['Headset (JBL)'],
+      outputs: [],
+      defaultInput: 'Headset (JBL)',
+      defaultOutput: null,
+    });
+    expect(main.slice(-2)).toEqual([
+      { type: 'voice.capture', event: 'opened', label: 'Headset (JBL)', fallback: true },
+      {
+        type: 'voice.devices',
+        inputs: ['Headset (JBL)'],
+        outputs: [],
+        defaultInput: 'Headset (JBL)',
+        defaultOutput: null,
+      },
+    ]);
+  });
+});
+
 describe('enrollError', () => {
   it('десяткові — з комою, як пише людина', () => {
     expect(enrollError(4.8, 0.6, -12)).toBe(

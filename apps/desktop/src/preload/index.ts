@@ -43,12 +43,16 @@ contextBridge.exposeInMainWorld('banshee', {
   ui(command: unknown): void {
     ipcRenderer.send('ui', command);
   },
-  /** Запит до головного процесу: «Про програму», діагностика, «Видалити всі дані», моделі голосу. */
+  /**
+   * Запит до головного процесу: «Про програму», діагностика, «Видалити всі дані», моделі голосу,
+   * пристрої звуку.
+   */
   invoke(channel: unknown): Promise<unknown> {
     return channel === 'about' ||
       channel === 'diagnostics' ||
       channel === 'erase' ||
-      channel === 'voiceModels'
+      channel === 'voiceModels' ||
+      channel === 'voiceDevices'
       ? ipcRenderer.invoke(`ui:${channel}`)
       : Promise.reject(new Error('Невідомий запит'));
   },

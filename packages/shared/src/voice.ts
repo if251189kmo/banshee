@@ -32,11 +32,19 @@ const voiceInit = z.object({
   dataDir: path,
   logsDir: path,
   /**
-   * Перевірка програми: без мікрофона й динаміків — Banshee каже собі «Котра година?» голосом
-   * озвучки й слухає це через кнопку мікрофона.
+   * Перевірка програми, без справжнього мікрофона й динаміків. full — Banshee каже собі «Котра
+   * година?» голосом озвучки й слухає це через кнопку мікрофона, записує «Мій голос» і готує WAV для
+   * підставного мікрофона Chromium; live — звук лише з вікна звуку (підставний мікрофон), без
+   * готових фраз і без озвучки вголос.
    */
-  selfTest: z.boolean().optional(),
+  selfTest: z.enum(['full', 'live']).optional(),
 });
+/**
+ * Перевірка програми: WAV у теці даних перевірки, який «каже» підставний мікрофон Chromium, — фраза
+ * озвучки й секунда тиші, по колу. Пише процес voice (selfTest full), читає Chromium.
+ */
+export const FAKE_MIC_FILE = 'self-check-mic.wav';
+
 /** Новий порт до core (core перезапустився) або до вікна звуку (сторінку перезавантажено). */
 const voicePort = z.object({ type: z.literal('voice.port'), to: z.enum(['core', 'audio']) });
 /** Пауза мікрофона: гаряча клавіша, пункт трею, сон Windows. */
@@ -100,12 +108,30 @@ const voiceHeard = z.object({
   text: z.string(),
   owner: z.boolean().nullable(),
 });
-/** Мікрофон не відкрився: немає дозволу Windows, пристрою, зайнятий. */
-const voiceCapture = z.object({
-  type: z.literal('voice.capture'),
-  ok: z.boolean(),
-  error: z.string().optional(),
-});
+/**
+ * Мікрофон у вікні звуку. opened — відкрито: label — яким пристроєм, fallback — обраного пристрою
+ * немає, узято типовий Windows; failed — не відкрився (немає дозволу, пристрою, зайнятий); ended —
+ * потік обірвався, вікно звуку відкриває мікрофон наново; muted / unmuted — пристрій перестав
+ * давати звук / дає знову.
+ */
+export const CAPTURE_EVENTS = ['opened', 'failed', 'ended', 'muted', 'unmuted'] as const;
+export type CaptureEvent = (typeof CAPTURE_EVENTS)[number];
+const deviceName = z.string().min(1).max(300);
+const captureFields = {
+  event: z.enum(CAPTURE_EVENTS),
+  label: z.string().max(300).optional(),
+  error: z.string().max(500).optional(),
+  fallback: z.boolean().optional(),
+};
+/** Пристрої звуку, які бачить вікно звуку: назви; defaultInput / defaultOutput — типові Windows. */
+const deviceFields = {
+  inputs: z.array(deviceName).max(64),
+  outputs: z.array(deviceName).max(64),
+  defaultInput: deviceName.nullable(),
+  defaultOutput: deviceName.nullable(),
+};
+export const voiceCapture = z.object({ type: z.literal('voice.capture'), ...captureFields });
+export const voiceDevices = z.object({ type: z.literal('voice.devices'), ...deviceFields });
 /**
  * «Мій голос»: перебіг запису. phrases — скільки фраз уже прийнято. Для фрази: seconds — скільки в
  * ній мови, recorded — скільки звуку надійшло з мікрофона, peakDb — найгучніше місце (дБ від повної
@@ -143,6 +169,7 @@ export const controlFromVoice = z.discriminatedUnion('type', [
   voiceStateMessage,
   voiceHeard,
   voiceCapture,
+  voiceDevices,
   voiceEnrollment,
   voiceLevel,
   voiceSelfTest,
@@ -170,7 +197,12 @@ export type AudioToVoice =
   | { readonly type: 'audio'; readonly samples: Float32Array }
   /** Фразу з цим id дограно до кінця або зупинено. */
   | { readonly type: 'played'; readonly id: string }
-  | { readonly type: 'capture'; readonly ok: boolean; readonly error?: string };
+  /** Стан мікрофона й пристрої звуку — повідомлення, що їх процес voice передає головному. */
+  | z.output<typeof audioCapture>
+  | z.output<typeof audioDevices>;
+
+const audioCapture = z.object({ type: z.literal('capture'), ...captureFields });
+const audioDevices = z.object({ type: z.literal('devices'), ...deviceFields });
 
 export type VoiceToAudio =
   | {
@@ -191,7 +223,9 @@ export function isAudioToVoice(data: unknown): data is AudioToVoice {
     case 'played':
       return typeof message.id === 'string' && message.id.length <= 64;
     case 'capture':
-      return typeof message.ok === 'boolean';
+      return audioCapture.safeParse(message).success;
+    case 'devices':
+      return audioDevices.safeParse(message).success;
     default:
       return false;
   }

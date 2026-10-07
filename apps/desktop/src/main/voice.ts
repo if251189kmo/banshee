@@ -14,6 +14,7 @@ import {
   type BrowserWindow,
   type MessagePortMain,
   type UtilityProcess,
+  type WebContents,
 } from 'electron';
 import { Supervisor, type ChildHandle, type SupervisorState } from './supervisor.ts';
 
@@ -34,7 +35,11 @@ export interface VoiceHostDeps {
   readonly dataDir: string;
   readonly logsDir: string;
   readonly log: Log;
-  /** Перевірка програми: без вікна звуку, мікрофона й динаміків. */
+  /**
+   * Перевірка програми: без справжнього мікрофона й динаміків. Перший процес voice проганяє
+   * самоперевірку (`full`); вікно звуку з підставним мікрофоном Chromium — після `attachAudio()`, і
+   * наступні процеси voice слухають лише його (`live`).
+   */
   readonly selfTest: boolean;
   /** Порт до core як ще одного клієнта; false — core ще не працює. */
   readonly attachCore: (port: MessagePortMain) => boolean;
@@ -49,6 +54,8 @@ export class VoiceHost {
   private readonly supervisor: Supervisor;
   private child: UtilityProcess | null = null;
   private audio: BrowserWindow | null = null;
+  /** Сторінка вікна звуку сказала, що слухає порт і керування. */
+  private audioReady = false;
   private enabled = false;
   private paused = false;
   private devices: AudioDevices = { microphone: 'default', speakers: 'default' };
@@ -56,6 +63,9 @@ export class VoiceHost {
   private speaking = false;
   private failure: string | null = null;
   private pc: { inCall: boolean; active: boolean } = { inCall: false, active: true };
+  /** Перевірка програми: самоперевірку процесу voice вже пройдено, далі — вікно звуку. */
+  private selfTested = false;
+  private liveAudio = false;
 
   constructor(deps: VoiceHostDeps) {
     this.deps = deps;
@@ -101,6 +111,7 @@ export class VoiceHost {
     await this.stopChild();
     this.audio?.destroy();
     this.audio = null;
+    this.audioReady = false;
     this.set('off', false);
   }
 
@@ -125,7 +136,7 @@ export class VoiceHost {
    */
   reopen(): void {
     const win = this.audio;
-    if (!this.enabled || !win || win.isDestroyed() || win.webContents.isLoading()) return;
+    if (!this.enabled || !win || win.isDestroyed() || !this.audioReady) return;
     win.webContents.send('audio:control', {
       capture: false,
       microphone: this.devices.microphone,
@@ -152,6 +163,13 @@ export class VoiceHost {
     if (!this.enabled) return;
     this.failure = null;
     this.supervisor.start();
+  }
+
+  /** Перевірка програми: після самоперевірки — справжнє вікно звуку з підставним мікрофоном. */
+  attachAudio(): void {
+    this.liveAudio = true;
+    if (this.current !== 'loading' && this.current !== 'off' && this.current !== 'failed')
+      this.ensureAudio();
   }
 
   /** «Мій голос»: дії запису — у процес voice. */
@@ -212,7 +230,7 @@ export class VoiceHost {
         espeakDir: this.deps.espeakDir,
         dataDir: this.deps.dataDir,
         logsDir: this.deps.logsDir,
-        ...(this.deps.selfTest ? { selfTest: true } : {}),
+        ...(this.deps.selfTest ? { selfTest: this.selfTested ? 'live' : 'full' } : {}),
       } satisfies ControlToVoice,
       ports,
     );
@@ -269,24 +287,47 @@ export class VoiceHost {
         this.speaking = message.speaking;
         this.set(this.paused ? 'paused' : message.state, message.speaking);
         break;
+      case 'voice.selfTest':
+        this.selfTested = true;
+        break;
       default:
         break;
     }
     this.deps.onMessage(message);
   }
 
-  /** Вікно звуку: створити, коли процес voice готовий; порт до нього — після завантаження сторінки. */
+  /**
+   * Сторінка вікна звуку підписалася на порт і керування (`audio:ready`): тепер порт до процесу voice.
+   * Раніше порт ішов на `did-finish-load` з перевіркою `isLoading()`, а вона в ту мить ще true — порт
+   * не доходив ніколи, мікрофон відкривався, але звук не потрапляв у процес voice (2026-10-07).
+   */
+  audioPageReady(sender: WebContents): void {
+    const win = this.audio;
+    if (!win || win.isDestroyed() || win.webContents !== sender) return;
+    this.audioReady = true;
+    this.connectAudio();
+  }
+
+  /** Вікно звуку: створити, коли процес voice готовий; порт до нього — коли сторінка скаже, що готова. */
   private ensureAudio(): void {
-    if (this.deps.selfTest) return;
+    if (this.deps.selfTest && !this.liveAudio) return;
     if (!this.audio || this.audio.isDestroyed()) {
       const win = this.deps.createAudioWindow();
       if (!win) return;
       this.audio = win;
-      win.webContents.on('did-finish-load', () => {
-        this.connectAudio();
-      });
+      this.audioReady = false;
       win.on('closed', () => {
-        if (this.audio === win) this.audio = null;
+        if (this.audio !== win) return;
+        this.audio = null;
+        this.audioReady = false;
+      });
+      // Процес сторінки впав — нове вікно за 1 с, якщо голос і далі ввімкнено.
+      win.webContents.on('render-process-gone', () => {
+        if (this.audio !== win) return;
+        win.destroy();
+        setTimeout(() => {
+          if (this.enabled) this.ensureAudio();
+        }, 1000);
       });
       return;
     }
@@ -296,7 +337,8 @@ export class VoiceHost {
   private connectAudio(): void {
     const child = this.child;
     const win = this.audio;
-    if (!child || !win || win.isDestroyed() || win.webContents.isLoading()) return;
+    if (!child || !win || win.isDestroyed() || !this.audioReady) return;
+    this.deps.log.info('voice.audio', { pid: child.pid ?? null });
     const channel = new MessageChannelMain();
     win.webContents.postMessage('audio:port', null, [channel.port1]);
     child.postMessage({ type: 'voice.port', to: 'audio' } satisfies ControlToVoice, [
@@ -308,7 +350,7 @@ export class VoiceHost {
   /** Мікрофон відкритий, лише коли голос увімкнено, готовий і не на паузі. */
   private control(): void {
     const win = this.audio;
-    if (!win || win.isDestroyed() || win.webContents.isLoading()) return;
+    if (!win || win.isDestroyed() || !this.audioReady) return;
     const ready = this.current !== 'off' && this.current !== 'failed' && this.current !== 'loading';
     win.webContents.send('audio:control', {
       capture: this.enabled && !this.paused && ready,

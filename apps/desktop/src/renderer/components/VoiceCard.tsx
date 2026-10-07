@@ -3,6 +3,7 @@
 // модель слова «Banshee» і профіль голосу власника.
 import { useCallback, useEffect, useState } from 'react';
 import { uiToWindow } from '../../shared/ui.ts';
+import { captureText, useAudioDevices } from './AudioDevices.tsx';
 import { MyVoice } from './MyVoice.tsx';
 
 interface ModelsInfo {
@@ -45,6 +46,7 @@ export function VoiceCard() {
     problem: null,
   });
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const audio = useAudioDevices();
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
@@ -77,6 +79,7 @@ export function VoiceCard() {
   }, [refresh]);
 
   const downloading = progress !== null || info?.download?.state === 'running';
+  const listening = voice.state !== 'off' && voice.state !== 'failed';
   return (
     <section className="card voice-card" aria-labelledby="voice-card-title">
       <h2 id="voice-card-title">Голос</h2>
@@ -84,6 +87,11 @@ export function VoiceCard() {
         {STATE_TEXT[voice.state] ?? voice.state}
         {voice.state === 'failed' && voice.problem ? ` ${voice.problem}.` : ''}
       </p>
+      {listening && audio.capture ? (
+        <p className={audio.capture.event === 'opened' || audio.capture.event === 'unmuted' ? '' : 'error'}>
+          {captureText(audio.capture)} Мікрофон і динаміки — нижче, «Мікрофон» і «Динаміки».
+        </p>
+      ) : null}
       {info ? (
         <>
           {info.missingFiles === 0 ? (

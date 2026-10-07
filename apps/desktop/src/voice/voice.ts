@@ -1,16 +1,20 @@
 // Процес voice в utilityProcess (.claude/logic/02-voice.md, «Реалізація — етап 2»): чекає `voice.init`
 // від головного процесу, вантажить моделі й з'єднує порти — до core (клієнт протоколу core ↔ desktop)
 // і до вікна звуку. Перевірка програми обходиться без мікрофона й динаміків.
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   CHUNK,
   MissingModels,
   SAMPLE_RATE,
+  encodeWav,
   frequentPhrases,
   resample,
   startVoice,
   type StartedVoice,
 } from '@banshee/voice';
 import {
+  FAKE_MIC_FILE,
   PROTOCOL_VERSION,
   isAudioToVoice,
   parseControlToVoice,
@@ -80,7 +84,21 @@ async function selfTest(started: StartedVoice): Promise<void> {
   )
     await new Promise((resolve) => setTimeout(resolve, 50));
   const enrolled = await selfEnroll(started);
+  await writeFakeMicrophone(started);
   post({ type: 'voice.selfTest', heard: selfHeard, sttMs: null, played: selfPlayed, enrolled });
+}
+
+/**
+ * WAV для підставного мікрофона Chromium (`--use-file-for-fake-audio-capture`): далі перевірка
+ * програми слухає справжнє вікно звуку, а справжній мікрофон власника не відкривається.
+ */
+async function writeFakeMicrophone(started: StartedVoice): Promise<void> {
+  const spoken = await started.synthesize("Перевіряю мікрофон: один, два, три, чотири, п'ять.");
+  if (!spoken || !dataDir) return;
+  const samples = resample(spoken.samples, spoken.sampleRate, SAMPLE_RATE);
+  const withPause = new Float32Array(samples.length + SAMPLE_RATE);
+  withPause.set(samples);
+  await writeFile(join(dataDir, FAKE_MIC_FILE), encodeWav(withPause, SAMPLE_RATE));
 }
 
 /** «Мій голос» трьома фразами озвучки: запис, відбитки, збереження профілю в теці перевірки. */
@@ -108,11 +126,14 @@ async function selfEnroll(started: StartedVoice): Promise<boolean> {
 
 let selfHeard: string | null = null;
 let selfPlayed = 0;
+let dataDir: string | null = null;
 
 async function init(message: VoiceInit, ports: MessagePortMain[]): Promise<void> {
   appVersion = message.appVersion;
+  dataDir = message.dataDir;
   const [core, audio] = ports;
-  const testing = message.selfTest === true;
+  // Перевірка програми: озвучка не звучить уголос, лише рахується.
+  const testing = message.selfTest !== undefined;
   const toAudio = (outgoing: VoiceToAudio): void => {
     if (!testing) {
       audioPort?.postMessage(outgoing);
@@ -151,10 +172,12 @@ async function init(message: VoiceInit, ports: MessagePortMain[]): Promise<void>
   const ms = Math.round(performance.now() - startedAt);
   voice.log.info('voice.start', { ms, wakeModel: voice.wakeModel, profile: voice.profile });
   post({ type: 'voice.started', ms, profile: voice.profile, wakeModel: voice.wakeModel });
-  if (testing) {
+  if (message.selfTest === 'full') {
     await selfTest(voice);
     return;
   }
+  // live: звук іде лише з вікна звуку (підставний мікрофон), готові фрази не потрібні.
+  if (testing) return;
   // Часті фрази — у простої, один раз: далі вони збережені в data\voice\phrases.
   const started = voice;
   void started.service.warmPhrases(frequentPhrases()).then(

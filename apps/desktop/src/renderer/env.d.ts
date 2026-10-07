@@ -19,6 +19,8 @@ declare global {
   /** Вікно звуку (src/preload/audio.ts): керування мікрофоном від головного процесу. */
   interface BansheeAudioBridge {
     onControl(listener: (control: unknown) => void): void;
+    /** Сторінка готова приймати порт до процесу voice і керування. */
+    ready(): void;
   }
 
   interface Window {

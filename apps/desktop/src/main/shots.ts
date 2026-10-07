@@ -38,6 +38,10 @@ const VIEWS: readonly { name: string; command: UiToWindow }[] = [
     command: { type: 'center.section', section: 'settings', anchor: 'voice' },
   },
   {
+    name: 'settings-devices',
+    command: { type: 'center.section', section: 'settings', anchor: 'voice.microphone' },
+  },
+  {
     name: 'settings-brain',
     command: { type: 'center.section', section: 'settings', anchor: 'brain' },
   },

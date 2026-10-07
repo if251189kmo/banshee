@@ -1,7 +1,13 @@
 // Команди між вікнами й головним процесом desktop (не core): сховати оверлей і підігнати його висоту,
 // відкрити розділ центру керування, відкрити посилання в браузері. Перевіряються схемою на вході:
 // сторінка не може попросити головний процес відкрити довільну адресу.
-import { VOICE_STATES, voiceEnrollment, voiceLevel } from '@banshee/shared';
+import {
+  VOICE_STATES,
+  voiceCapture,
+  voiceDevices,
+  voiceEnrollment,
+  voiceLevel,
+} from '@banshee/shared';
 import { z } from '@banshee/shared/zod';
 
 /** Розділи центру керування (.claude/logic/09-ui.md); `wizard` — майстер першого запуску. */
@@ -57,7 +63,13 @@ export const uiToMain = z.discriminatedUnion('type', [
 ]);
 
 /** Запити сторінки до головного процесу з відповіддю (ipcRenderer.invoke). */
-export const INVOKE_CHANNELS = ['about', 'diagnostics', 'erase', 'voiceModels'] as const;
+export const INVOKE_CHANNELS = [
+  'about',
+  'diagnostics',
+  'erase',
+  'voiceModels',
+  'voiceDevices',
+] as const;
 export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];
 export type UiToMain = z.output<typeof uiToMain>;
 
@@ -83,6 +95,9 @@ export const uiToWindow = z.discriminatedUnion('type', [
   /** «Мій голос»: перебіг запису й рівень мікрофона, поки записується фраза. */
   voiceEnrollment,
   voiceLevel,
+  /** Який мікрофон відкрило вікно звуку, і пристрої звуку для вибору в налаштуваннях. */
+  voiceCapture,
+  voiceDevices,
   /** Що почув Banshee: команда (з ходом) або «так» / «ні» на картку. */
   z.object({
     type: z.literal('voice.heard'),

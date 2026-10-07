@@ -27,7 +27,27 @@ export interface CheckTarget {
   crashCore(): void;
   openCenter(): BrowserWindow;
   command(text: string): void;
+  /** Голос через справжнє вікно звуку з підставним мікрофоном Chromium (WAV з озвучки). */
+  readonly audio: {
+    attach(): void;
+    /** Скільки разів вікно звуку відкрило мікрофон і яким пристроєм — востаннє. */
+    opened(): { readonly count: number; readonly label: string | null };
+    enroll(action: 'start' | 'stop' | 'cancel'): void;
+    /** Скільки фраз «Мого голосу» оцінено й остання з них. */
+    phrases(): { readonly count: number; readonly last: LivePhrase | null };
+    /** Скільки мікрофонів і динаміків показує вікно звуку для вибору в налаштуваннях. */
+    devices(): { readonly inputs: number; readonly outputs: number } | null;
+    /** Вимкнути голос і за 1 с увімкнути, не чекаючи кінця вимкнення, — як перемикач у налаштуваннях. */
+    toggle(): Promise<void>;
+  };
   readonly log: Log;
+}
+
+export interface LivePhrase {
+  readonly ok?: boolean | undefined;
+  readonly seconds?: number | undefined;
+  readonly recorded?: number | undefined;
+  readonly peakDb?: number | undefined;
 }
 
 /** Ціль кроку 1.1 і N4: core після падіння знову готовий за ≤ 5 с. */
@@ -121,6 +141,68 @@ function runSecondInstance(): Promise<{ code: number | null; ms: number }> {
   });
 }
 
+/** Фраза з вікна звуку: 4 с запису «Мого голосу» — підставний мікрофон каже фразу озвучки по колу. */
+async function livePhrase(target: CheckTarget): Promise<LivePhrase | null> {
+  const before = target.audio.phrases().count;
+  target.audio.enroll('start');
+  await sleep(4000);
+  target.audio.enroll('stop');
+  await waitFor(() => target.audio.phrases().count > before, 5000, 'голос: фраза з вікна звуку');
+  const last = target.audio.phrases().last;
+  return last
+    ? { ok: last.ok, seconds: last.seconds, recorded: last.recorded, peakDb: last.peakDb }
+    : null;
+}
+
+/** Звук дійшов: за 4 с запису — щонайменше 3 с звуку й 1,5 с мови. */
+const heardLive = (phrase: LivePhrase | null): boolean =>
+  (phrase?.recorded ?? 0) >= 3 && (phrase?.seconds ?? 0) >= 1.5;
+
+/**
+ * Справжнє вікно звуку (02-voice.md, «Вікно звуку»): getUserMedia → AudioWorklet → порт → процес voice,
+ * з підставним мікрофоном Chromium замість мікрофона власника. Потім голос швидко вимкнути й увімкнути —
+ * так 2026-10-07 власник отримав 0 кроків звуку — і перевірити ще раз.
+ */
+async function checkLiveAudio(target: CheckTarget, problems: string[]): Promise<unknown> {
+  target.audio.attach();
+  await waitFor(
+    () => target.audio.opened().count > 0,
+    20_000,
+    'голос: вікно звуку відкрило мікрофон',
+  );
+  const microphone = target.audio.opened().label;
+  const devices = await waitFor(
+    () => (target.audio.devices()?.inputs ?? 0) > 0,
+    5000,
+    'голос: список мікрофонів для налаштувань',
+  ).then(
+    () => target.audio.devices(),
+    () => {
+      problems.push('голос: вікно звуку не дало списку мікрофонів');
+      return target.audio.devices();
+    },
+  );
+  const first = await livePhrase(target);
+  if (!heardLive(first))
+    problems.push(
+      `голос: з вікна звуку — ${String(first?.recorded ?? 0)} с звуку, ${String(first?.seconds ?? 0)} с мови`,
+    );
+  const openedBefore = target.audio.opened().count;
+  await target.audio.toggle();
+  await waitFor(
+    () => target.voice().state === 'idle' && target.audio.opened().count > openedBefore,
+    30_000,
+    'голос після вимкнення й увімкнення',
+  );
+  const afterToggle = await livePhrase(target);
+  if (!heardLive(afterToggle))
+    problems.push(
+      `голос після вимкнення й увімкнення: ${String(afterToggle?.recorded ?? 0)} с звуку, ${String(afterToggle?.seconds ?? 0)} с мови`,
+    );
+  target.audio.enroll('cancel');
+  return { microphone, devices, phrase: first, afterToggle };
+}
+
 export async function runSelfCheck(target: CheckTarget, out: string): Promise<void> {
   const result: Record<string, unknown> = {
     at: new Date().toISOString(),
@@ -182,6 +264,11 @@ export async function runSelfCheck(target: CheckTarget, out: string): Promise<vo
         `голос: почуто «${voice.selfTest.heard ?? ''}», озвучено ${String(voice.selfTest.played)}`,
       );
     }
+    if (voice.selfTest !== null)
+      result['voiceLive'] = await checkLiveAudio(target, problems).catch((error: unknown) => {
+        problems.push(`голос: ${errorText(error)}`);
+        return null;
+      });
 
     const readyBefore = target.coreReadyAt.length;
     const exitsBefore = target.coreExitAt.length;

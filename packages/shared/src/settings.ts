@@ -181,14 +181,16 @@ export const SETTINGS = {
   'voice.microphone': setting({
     scope: 'device',
     label: 'Мікрофон',
-    description: 'Пристрій запису; «default» — як у Windows.',
+    description:
+      'Пристрій запису: як у Windows або конкретний — за назвою. Обраного немає — Banshee слухає типовий мікрофон Windows.',
     schema: z.string().min(1),
     defaultValue: 'default',
   }),
   'voice.speakers': setting({
     scope: 'device',
     label: 'Динаміки',
-    description: 'Пристрій для озвучки; «default» — як у Windows.',
+    description:
+      'Пристрій для озвучки: як у Windows або конкретний — за назвою. Обраного немає — звук іде на типові динаміки Windows.',
     schema: z.string().min(1),
     defaultValue: 'default',
   }),
